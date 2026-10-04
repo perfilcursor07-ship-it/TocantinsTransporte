@@ -1,7 +1,6 @@
 @php
     $authUser = Auth::user();
     $isAdmin = $authUser->role === 'admin';
-    $openTickets = $isAdmin ? \App\Models\ServiceTicket::openCount() : 0;
 
     // Mesmos links, permissões e rotas de antes — só organizados em seções.
     $sections = [
@@ -16,6 +15,8 @@
              'icon' => 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z'],
             ['show' => $authUser->hasModule('vouchers'), 'route' => 'admin.vouchers.index', 'match' => 'admin.vouchers*', 'label' => 'Vouchers',
              'icon' => 'M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z'],
+            ['show' => $authUser->hasModule('tourism'), 'route' => 'admin.tourism.index', 'match' => 'admin.tourism*', 'label' => 'Turismo',
+             'icon' => 'M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z'],
             ['show' => $isAdmin, 'route' => 'admin.devices', 'match' => 'admin.devices*', 'label' => 'Dispositivos',
              'icon' => 'M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z'],
             ['show' => $isAdmin, 'route' => 'admin.driver-pix.index', 'match' => 'admin.driver-pix*', 'label' => 'Pagamentos', 'title' => 'Pagamentos Motoristas',
@@ -33,8 +34,6 @@
              'icon' => 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z'],
             ['show' => $isAdmin, 'route' => 'admin.mikrotik.remote.index', 'match' => 'admin.mikrotik.remote*', 'label' => 'MikroTik',
              'icon' => 'M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z'],
-            ['show' => $isAdmin, 'route' => 'admin.tickets.index', 'match' => 'admin.tickets*', 'label' => 'Chamados', 'count' => $openTickets,
-             'icon' => 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2'],
             ['show' => $isAdmin, 'route' => 'admin.settings.index', 'match' => 'admin.settings*', 'label' => 'Configurações', 'settings' => true,
              'icon' => 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z'],
         ],

@@ -125,6 +125,16 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin.access'])->gr
         Route::post('/vouchers/{voucher}/reset', [AdminVoucherController::class, 'resetDaily'])->name('vouchers.reset');
         Route::delete('/vouchers/{voucher}', [AdminVoucherController::class, 'destroy'])->name('vouchers.destroy');
     });
+
+    // Turismo: cadastro de viagens (ônibus, período, pagamento e plano)
+    Route::middleware(['module:tourism'])->prefix('turismo')->name('tourism.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\TourismTripController::class, 'index'])->name('index');
+        Route::get('/nova', [App\Http\Controllers\Admin\TourismTripController::class, 'create'])->name('create');
+        Route::post('/', [App\Http\Controllers\Admin\TourismTripController::class, 'store'])->name('store');
+        Route::get('/{trip}/editar', [App\Http\Controllers\Admin\TourismTripController::class, 'edit'])->name('edit');
+        Route::put('/{trip}', [App\Http\Controllers\Admin\TourismTripController::class, 'update'])->name('update');
+        Route::delete('/{trip}', [App\Http\Controllers\Admin\TourismTripController::class, 'destroy'])->name('destroy');
+    });
     
     // Rotas do Chat (Atendimento Online)
     Route::middleware(['module:chat'])->prefix('chat')->name('chat.')->group(function () {
@@ -148,19 +158,6 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin.access'])->gr
         Route::get('/relatorio-pdf', [AdminServiceReviewController::class, 'exportPdf'])->name('pdf');
     });
 
-    // Chamados de Atendimento
-    Route::prefix('chamados')->name('tickets.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\Admin\ServiceTicketController::class, 'index'])->name('index');
-        Route::get('/novo', [\App\Http\Controllers\Admin\ServiceTicketController::class, 'create'])->name('create');
-        Route::post('/', [\App\Http\Controllers\Admin\ServiceTicketController::class, 'store'])->name('store');
-        Route::get('/{ticket}/editar', [\App\Http\Controllers\Admin\ServiceTicketController::class, 'edit'])->name('edit');
-        Route::put('/{ticket}', [\App\Http\Controllers\Admin\ServiceTicketController::class, 'update'])->name('update');
-        Route::post('/{ticket}/fechar', [\App\Http\Controllers\Admin\ServiceTicketController::class, 'close'])->name('close');
-        Route::post('/{ticket}/reabrir', [\App\Http\Controllers\Admin\ServiceTicketController::class, 'reopen'])->name('reopen');
-        Route::delete('/{ticket}', [\App\Http\Controllers\Admin\ServiceTicketController::class, 'destroy'])->name('destroy');
-        Route::post('/anotacoes', [\App\Http\Controllers\Admin\ServiceTicketController::class, 'saveNotes'])->name('save-notes');
-    });
-    
     // Rotas APENAS para Administradores
     Route::middleware(['admin.only'])->group(function () {
         // Configuracoes e teste de avaliacoes (somente admin pode editar)

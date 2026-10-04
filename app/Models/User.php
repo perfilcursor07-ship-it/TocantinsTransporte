@@ -146,6 +146,7 @@ class User extends Authenticatable
         'vouchers' => 'Vouchers',
         'chat' => 'Chat',
         'reviews' => 'Avaliacoes',
+        'tourism' => 'Turismo',
     ];
 
     /**
@@ -181,6 +182,7 @@ class User extends Authenticatable
             'vouchers' => 'admin.vouchers.index',
             'chat' => 'admin.chat.index',
             'reviews' => 'admin.reviews.index',
+            'tourism' => 'admin.tourism.index',
         ];
 
         foreach ($this->allowed_modules ?? [] as $module) {
