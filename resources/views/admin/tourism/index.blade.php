@@ -66,7 +66,7 @@
                         <th class="px-5 py-2.5 text-left text-[10px] font-bold text-muted uppercase tracking-wider">Ônibus</th>
                         <th class="px-5 py-2.5 text-left text-[10px] font-bold text-muted uppercase tracking-wider">Período</th>
                         <th class="px-5 py-2.5 text-left text-[10px] font-bold text-muted uppercase tracking-wider">Pagamento</th>
-                        <th class="px-5 py-2.5 text-left text-[10px] font-bold text-muted uppercase tracking-wider">Plano</th>
+                        <th class="px-5 py-2.5 text-left text-[10px] font-bold text-muted uppercase tracking-wider">Internet</th>
                         <th class="px-5 py-2.5 text-center text-[10px] font-bold text-muted uppercase tracking-wider">Status</th>
                         <th class="px-5 py-2.5 text-center text-[10px] font-bold text-muted uppercase tracking-wider">Ações</th>
                     </tr>
@@ -75,6 +75,7 @@
                     @forelse($trips as $trip)
                     <tr class="hover:bg-surface/60 transition-colors {{ $trip->ends_at->isPast() ? 'opacity-60' : '' }}">
                         <td class="px-5 py-3.5">
+                            @if($trip->contract_number)<p class="text-[10px] font-bold text-green uppercase tracking-wider">Contrato {{ $trip->contract_number }}</p>@endif
                             <p class="text-sm font-bold text-ink">{{ $trip->title }}</p>
                             <p class="text-[11px] text-muted">
                                 {{ $trip->passengers_count ? $trip->passengers_count.' passageiros · ' : '' }}por {{ $trip->creator->name ?? '—' }}
@@ -101,7 +102,13 @@
                                 </p>
                             @endif
                         </td>
-                        <td class="px-5 py-3.5 text-sm text-ink2">{{ $trip->planLabel() }}</td>
+                        <td class="px-5 py-3.5">
+                            <p class="text-sm text-ink2">{{ $trip->planLabel() }}</p>
+                            @if($trip->coverage)
+                                @php $estimate = $trip->estimate($pricing); @endphp
+                                <p class="text-[11px] text-muted">{{ collect($estimate['lines'])->pluck('plan')->implode(' + ') }} · R$ {{ number_format($estimate['per_passenger'], 2, ',', '.') }}/passageiro</p>
+                            @endif
+                        </td>
                         <td class="px-5 py-3.5 text-center">
                             <span class="inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded {{ $statusStyles[$trip->status] ?? '' }}">{{ $trip->statusLabel() }}</span>
                         </td>
@@ -123,10 +130,11 @@
                             </div>
                         </td>
                     </tr>
-                    @if($trip->notes || $trip->admin_notes)
+                    @if($trip->plan_details || $trip->notes || $trip->admin_notes)
                     <tr class="{{ $trip->ends_at->isPast() ? 'opacity-60' : '' }}">
                         <td colspan="7" class="px-5 pb-3 pt-0 text-[11px] text-muted">
-                            @if($trip->notes)<p><span class="font-semibold text-ink2">Observações:</span> {{ $trip->notes }}</p>@endif
+                            @if($trip->plan_details)<p class="whitespace-pre-line"><span class="font-semibold text-ink2">Como será o plano:</span> {{ $trip->plan_details }}</p>@endif
+                            @if($trip->notes)<p class="mt-0.5"><span class="font-semibold text-ink2">Observações:</span> {{ $trip->notes }}</p>@endif
                             @if($trip->admin_notes)<p class="mt-0.5"><span class="font-semibold text-green">Administrador:</span> {{ $trip->admin_notes }}</p>@endif
                         </td>
                     </tr>

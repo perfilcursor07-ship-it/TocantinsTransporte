@@ -32,14 +32,17 @@ class TourismTripController extends Controller
 
         $counts = TourismTrip::selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
 
-        return view('admin.tourism.index', compact('trips', 'status', 'counts'));
+        $pricing = TourismTrip::pricing();
+
+        return view('admin.tourism.index', compact('trips', 'status', 'counts', 'pricing'));
     }
 
     public function create()
     {
         return view('admin.tourism.form', [
-            'trip' => new TourismTrip(['payment_mode' => 'individual', 'plan' => 'varios_dias', 'status' => 'pending']),
+            'trip' => new TourismTrip(['payment_mode' => 'individual', 'status' => 'pending']),
             'buses' => $this->buses(),
+            'pricing' => TourismTrip::pricing(),
         ]);
     }
 
@@ -59,7 +62,9 @@ class TourismTripController extends Controller
     {
         $this->authorizeChange($request, $trip);
 
-        return view('admin.tourism.form', ['trip' => $trip, 'buses' => $this->buses($trip->bus_id)]);
+        return view('admin.tourism.form', [
+            'trip' => $trip, 'buses' => $this->buses($trip->bus_id), 'pricing' => TourismTrip::pricing(),
+        ]);
     }
 
     public function update(Request $request, TourismTrip $trip)
@@ -94,28 +99,52 @@ class TourismTripController extends Controller
     private function validated(Request $request, ?TourismTrip $trip = null): array
     {
         $data = $request->validate([
+            'contract_number' => ['nullable', 'string', 'max:30'],
             'title' => ['required', 'string', 'max:120'],
             'bus_id' => ['required', 'integer', 'exists:buses,id'],
             'starts_at' => ['required', 'date'],
             'ends_at' => ['required', 'date', 'after:starts_at'],
             'payment_mode' => ['required', Rule::in(array_keys(TourismTrip::PAYMENT_MODES))],
-            'plan' => ['required', Rule::in(array_keys(TourismTrip::PLANS))],
-            'responsible_name' => ['nullable', 'required_if:payment_mode,group', 'string', 'max:120'],
-            'responsible_phone' => ['nullable', 'required_if:payment_mode,group', 'string', 'max:20'],
-            'agreed_amount' => ['nullable', 'numeric', 'min:0', 'max:99999'],
+            // Só quando uma pessoa paga tudo: período da internet e como será o plano.
+            // (exclude_unless: campos escondidos na tela não contam quando não se aplicam)
+            'coverage' => ['exclude_unless:payment_mode,group', 'required', Rule::in(array_keys(TourismTrip::COVERAGES))],
+            'outbound_arrives_at' => ['exclude_unless:payment_mode,group', 'exclude_unless:coverage,round_trip', 'required', 'date'],
+            'return_departs_at' => ['exclude_unless:payment_mode,group', 'exclude_unless:coverage,round_trip', 'required', 'date'],
+            'plan_details' => ['exclude_unless:payment_mode,group', 'required', 'string', 'max:2000'],
+            'responsible_name' => ['exclude_unless:payment_mode,group', 'required', 'string', 'max:120'],
+            'responsible_phone' => ['exclude_unless:payment_mode,group', 'required', 'string', 'max:20'],
+            'agreed_amount' => ['exclude_unless:payment_mode,group', 'nullable', 'numeric', 'min:0', 'max:999999'],
             'passengers_count' => ['nullable', 'integer', 'min:1', 'max:200'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ], [
-            'ends_at.after' => 'O fim da viagem precisa ser depois do início.',
-            'responsible_name.required_if' => 'Informe quem vai pagar por todos.',
-            'responsible_phone.required_if' => 'Informe o telefone de quem vai pagar por todos.',
+            'ends_at.after' => 'A chegada da volta precisa ser depois da saída da ida.',
+            'coverage.required' => 'Escolha se a pessoa paga a internet de todos os dias ou só da ida e da volta.',
+            'outbound_arrives_at.required' => 'Informe a chegada da ida.',
+            'return_departs_at.required' => 'Informe a saída da volta.',
+            'plan_details.required' => 'Descreva como será o plano de internet.',
+            'responsible_name.required' => 'Informe quem vai pagar por todos.',
+            'responsible_phone.required' => 'Informe o telefone de quem vai pagar por todos.',
         ], [
-            'title' => 'nome da viagem', 'bus_id' => 'ônibus', 'starts_at' => 'início', 'ends_at' => 'fim',
-            'payment_mode' => 'forma de pagamento', 'plan' => 'plano',
+            'contract_number' => 'número do contrato', 'title' => 'contratante / grupo', 'bus_id' => 'ônibus',
+            'starts_at' => 'saída da ida', 'ends_at' => 'chegada da volta', 'payment_mode' => 'forma de pagamento',
         ]);
 
         $data['starts_at'] = Carbon::parse($data['starts_at']);
         $data['ends_at'] = Carbon::parse($data['ends_at']);
+
+        if (($data['coverage'] ?? null) === 'round_trip') {
+            $data['outbound_arrives_at'] = Carbon::parse($data['outbound_arrives_at']);
+            $data['return_departs_at'] = Carbon::parse($data['return_departs_at']);
+            if (! ($data['starts_at'] < $data['outbound_arrives_at']
+                && $data['outbound_arrives_at'] <= $data['return_departs_at']
+                && $data['return_departs_at'] < $data['ends_at'])) {
+                throw ValidationException::withMessages(['return_departs_at' =>
+                    'Confira os horários: saída da ida → chegada da ida → saída da volta → chegada da volta.']);
+            }
+        } else {
+            $data['outbound_arrives_at'] = null;
+            $data['return_departs_at'] = null;
+        }
 
         $conflict = TourismTrip::overlapping((int) $data['bus_id'], $data['starts_at'], $data['ends_at'], $trip?->id)
             ->first();
@@ -126,12 +155,15 @@ class TourismTripController extends Controller
             )]);
         }
 
-        // Pagamento individual não tem responsável nem valor combinado.
+        // Cada passageiro paga o seu: ele escolhe o plano no portal; não há
+        // responsável, valor combinado nem período/plano definido aqui.
         if ($data['payment_mode'] === 'individual') {
-            $data['responsible_name'] = null;
-            $data['responsible_phone'] = null;
-            $data['agreed_amount'] = null;
+            foreach (['responsible_name', 'responsible_phone', 'agreed_amount', 'coverage',
+                'outbound_arrives_at', 'return_departs_at', 'plan_details'] as $field) {
+                $data[$field] = null;
+            }
         }
+        $data['plan'] = null; // substituído por "coverage" + "plan_details"
 
         return $data;
     }
