@@ -23,6 +23,24 @@
             </div>
         @endif
 
+        @if($errors->any())
+            <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-lg">
+                <div class="flex items-start">
+                    <svg class="w-6 h-6 text-red-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div>
+                        <p class="text-red-800 font-bold mb-1">Nada foi salvo. Corrija os itens abaixo:</p>
+                        <ul class="list-disc list-inside text-sm text-red-700 space-y-0.5">
+                            @foreach($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <form action="{{ route('admin.settings.update') }}" method="POST" class="space-y-6">
             @csrf
             @method('PUT')
@@ -49,7 +67,7 @@
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input type="hidden" name="plan_short_enabled" value="0">
                                     <input type="checkbox" name="plan_short_enabled" value="1" class="sr-only peer" id="plan_short_toggle"
-                                        {{ $settings['plan_short_enabled'] ? 'checked' : '' }}
+                                        {{ old('plan_short_enabled', $settings['plan_short_enabled']) ? 'checked' : '' }}
                                         onchange="document.getElementById('plan-short-card').classList.toggle('opacity-60', !this.checked && !document.getElementById('plan_short_schedule_toggle').checked)">
                                     <div class="w-9 h-5 bg-gray-300 peer-focus:ring-2 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
                                 </label>
@@ -93,7 +111,7 @@
                                     <label class="relative inline-flex items-center cursor-pointer">
                                         <input type="hidden" name="plan_short_schedule_enabled" value="0">
                                         <input type="checkbox" name="plan_short_schedule_enabled" value="1" class="sr-only peer" id="plan_short_schedule_toggle"
-                                            {{ $settings['plan_short_schedule_enabled'] ? 'checked' : '' }}
+                                            {{ old('plan_short_schedule_enabled', $settings['plan_short_schedule_enabled']) ? 'checked' : '' }}
                                             onchange="document.getElementById('plan-short-schedule-fields').classList.toggle('hidden', !this.checked); document.getElementById('plan-short-card').classList.toggle('opacity-60', !this.checked && !document.getElementById('plan_short_toggle').checked)">
                                         <div class="w-9 h-5 bg-gray-300 peer-focus:ring-2 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-500"></div>
                                     </label>
@@ -144,7 +162,7 @@
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input type="hidden" name="plan_full_enabled" value="0">
                                     <input type="checkbox" name="plan_full_enabled" value="1" class="sr-only peer" id="plan_full_toggle"
-                                        {{ $settings['plan_full_enabled'] ? 'checked' : '' }}
+                                        {{ old('plan_full_enabled', $settings['plan_full_enabled']) ? 'checked' : '' }}
                                         onchange="document.getElementById('plan-full-card').classList.toggle('opacity-60', !this.checked)">
                                     <div class="w-9 h-5 bg-gray-300 peer-focus:ring-2 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
                                 </label>
@@ -232,7 +250,7 @@
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="hidden" name="video_discount_enabled" value="0">
                             <input type="checkbox" name="video_discount_enabled" value="1" class="sr-only peer" id="video_discount_toggle"
-                                {{ $settings['video_discount_enabled'] ? 'checked' : '' }}>
+                                {{ old('video_discount_enabled', $settings['video_discount_enabled']) ? 'checked' : '' }}>
                             <div class="w-11 h-6 bg-gray-300 peer-focus:ring-2 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
                         </label>
                     </div>
@@ -301,7 +319,7 @@
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="hidden" name="unpaid_reminder_enabled" value="0">
                             <input type="checkbox" name="unpaid_reminder_enabled" value="1" class="sr-only peer" id="unpaid_reminder_toggle"
-                                {{ $settings['unpaid_reminder_enabled'] ? 'checked' : '' }}>
+                                {{ old('unpaid_reminder_enabled', $settings['unpaid_reminder_enabled']) ? 'checked' : '' }}>
                             <div class="w-11 h-6 bg-gray-300 peer-focus:ring-2 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
                         </label>
                     </div>
