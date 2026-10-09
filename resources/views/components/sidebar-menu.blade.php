@@ -48,28 +48,28 @@
     <!-- Brand -->
     <div class="flex items-center justify-between h-16 px-4 flex-shrink-0">
         <a href="{{ route('admin.dashboard') }}" class="flex items-center gap-3 min-w-0">
-            <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-emerald-400 to-green-600 shadow-lg shadow-green-900/40">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-[#087a3b]">
                 <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
                 </svg>
             </div>
             <div class="min-w-0 sidebar-label">
-                <p class="text-[15px] font-extrabold text-white leading-tight tracking-tight truncate">WiFi Tocantins</p>
-                <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-300/80 leading-none mt-0.5">Starlink · Admin</p>
+                <p class="text-[15px] font-extrabold text-[#1d2c23] leading-tight tracking-tight truncate">WiFi Tocantins</p>
+                <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#16804a] leading-none mt-0.5">Starlink · Admin</p>
             </div>
         </a>
         <div class="flex items-center gap-1">
             <!-- Collapse toggle (desktop) -->
             <button onclick="collapseSidebar()" id="collapseBtn"
-                    class="hidden lg:flex w-8 h-8 items-center justify-center text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                    class="hidden lg:flex w-8 h-8 items-center justify-center text-[#87938b] hover:text-[#17633f] hover:bg-[#f0f5f1] rounded-lg transition-colors"
                     title="Recolher menu">
                 <svg id="collapseIcon" class="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
                 </svg>
             </button>
             <!-- Close (mobile) -->
-            <button onclick="toggleSidebar()" class="lg:hidden w-8 h-8 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+            <button onclick="toggleSidebar()" class="lg:hidden w-8 h-8 flex items-center justify-center text-[#87938b] hover:text-[#17633f] hover:bg-[#f0f5f1] rounded-lg transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -79,14 +79,14 @@
 
     <!-- Expand button (visible only when collapsed on desktop) -->
     <button onclick="collapseSidebar()" id="expandBtn"
-            class="hidden mx-auto mb-2 w-10 h-10 items-center justify-center rounded-xl text-white/60 bg-white/5 hover:bg-white/10 hover:text-white transition-colors"
+            class="hidden mx-auto mb-2 w-10 h-10 items-center justify-center rounded-xl text-[#718077] bg-[#f4f7f5] hover:bg-[#eaf3ed] hover:text-[#17633f] transition-colors"
             title="Expandir menu">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/>
         </svg>
     </button>
 
-    <div class="mx-4 h-px bg-white/10 flex-shrink-0 sidebar-label"></div>
+    <div class="mx-4 h-px bg-[#e6ebe7] flex-shrink-0 sidebar-label"></div>
 
     <!-- Nav -->
     <nav class="flex-1 px-3 py-4 overflow-y-auto space-y-5 sidebar-scroll">
@@ -94,15 +94,15 @@
             @php $visibleItems = array_filter($items, fn ($i) => $i['show']); @endphp
             @if(count($visibleItems) > 0)
             <div>
-                <p class="px-3 mb-1.5 text-[10px] font-bold text-white/35 uppercase tracking-[0.16em] sidebar-label">{{ $sectionLabel }}</p>
+                <p class="px-3 mb-1.5 text-[10px] font-bold text-[#929d95] uppercase tracking-[0.16em] sidebar-label">{{ $sectionLabel }}</p>
                 <div class="space-y-0.5">
                     @foreach($visibleItems as $item)
                         @php $active = request()->routeIs($item['match']); @endphp
                         <a href="{{ route($item['route']) }}" onclick="closeSidebarOnMobile()" title="{{ $item['title'] ?? $item['label'] }}"
-                           class="sidebar-link group relative flex items-center gap-3 px-2 py-1.5 rounded-xl text-[13px] font-semibold transition-all
-                                  {{ $active ? 'sidebar-link-active text-white' : 'text-white/60 hover:text-white hover:bg-white/[0.06]' }}">
+                           class="sidebar-link group relative flex items-center gap-3 px-2 py-1.5 rounded-xl text-xs font-semibold transition-all
+                                  {{ $active ? 'sidebar-link-active text-[#087a3b]' : 'text-[#59665e] hover:text-[#087a3b] hover:bg-[#f4f7f5]' }}">
                             <span class="w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0 transition-colors
-                                         {{ $active ? 'bg-white/20' : 'bg-white/[0.04] group-hover:bg-white/10' }}">
+                                         {{ $active ? 'bg-[#d8efe0] text-[#087a3b]' : 'bg-[#f4f7f5] text-[#758279] group-hover:bg-[#eaf3ed] group-hover:text-[#087a3b]' }}">
                                 @if(!empty($item['whatsapp']))
                                     <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
@@ -133,28 +133,28 @@
 
     <!-- User -->
     <div class="p-3 flex-shrink-0">
-        <div id="userDropdown" class="hidden mb-2 p-1.5 rounded-xl bg-white/[0.06] ring-1 ring-white/10">
-            <a href="{{ route('admin.settings.index') }}" class="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+        <div id="userDropdown" class="hidden mb-2 p-1.5 rounded-xl bg-white ring-1 ring-black/[0.06] shadow-sm">
+            <a href="{{ route('admin.settings.index') }}" class="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#59665e] hover:text-[#087a3b] hover:bg-[#f0f6f1] rounded-lg transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                 <span class="sidebar-label">Meu Perfil</span>
             </a>
             <form method="POST" action="{{ route('logout') }}" class="mt-0.5">
                 @csrf
-                <button type="submit" class="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-red-300 hover:text-white hover:bg-red-500/80 rounded-lg transition-colors">
+                <button type="submit" class="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
                     <span class="sidebar-label">Sair</span>
                 </button>
             </form>
         </div>
-        <div class="flex items-center gap-3 p-2 rounded-xl bg-white/[0.05] ring-1 ring-white/10 hover:bg-white/10 transition-colors cursor-pointer sidebar-user" onclick="toggleDropdown()">
-            <div class="w-9 h-9 bg-gradient-to-br from-emerald-400 to-green-600 rounded-lg flex items-center justify-center flex-shrink-0">
+        <div class="flex items-center gap-3 p-2 rounded-xl bg-[#f7f9f7] ring-1 ring-[#e6ebe7] hover:bg-[#eef4ef] transition-colors cursor-pointer sidebar-user" onclick="toggleDropdown()">
+            <div class="w-9 h-9 bg-[#087a3b] rounded-lg flex items-center justify-center flex-shrink-0">
                 <span class="text-white text-sm font-bold">{{ strtoupper(substr($authUser->name, 0, 1)) }}</span>
             </div>
             <div class="flex-1 min-w-0 sidebar-label">
-                <p class="text-[13px] font-bold text-white truncate leading-tight">{{ $authUser->name }}</p>
-                <p class="text-[11px] text-white/45 leading-tight">{{ $isAdmin ? 'Administrador' : 'Gestor' }}</p>
+                <p class="text-[13px] font-bold text-[#26352c] truncate leading-tight">{{ $authUser->name }}</p>
+                <p class="text-[11px] text-[#7b887f] leading-tight">{{ $isAdmin ? 'Administrador' : 'Gestor' }}</p>
             </div>
-            <svg class="w-4 h-4 text-white/40 flex-shrink-0 sidebar-label" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4 text-[#87938b] flex-shrink-0 sidebar-label" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
             </svg>
         </div>
@@ -163,7 +163,7 @@
 
 <!-- Mobile toggle -->
 <button onclick="toggleSidebar()" id="menuToggleBtn"
-        class="lg:hidden fixed top-3 left-4 z-50 w-10 h-10 bg-[#0C1A13] text-white rounded-xl shadow-lg flex items-center justify-center hover:bg-[#12261b] transition-colors">
+        class="lg:hidden fixed top-3 left-4 z-50 w-10 h-10 bg-white text-[#17633f] rounded-xl border border-[#e1e7e2] shadow-sm flex items-center justify-center hover:bg-[#f4f7f5] transition-colors">
     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
     </svg>
@@ -174,18 +174,17 @@
 
 <style>
     .admin-sidebar {
-        background:
-            radial-gradient(120% 50% at 0% 0%, rgba(16, 185, 129, 0.16) 0%, transparent 60%),
-            linear-gradient(180deg, #0C1A13 0%, #0A140F 100%);
-        box-shadow: 1px 0 0 rgba(255,255,255,0.04), 8px 0 30px -12px rgba(0,0,0,0.35);
+        background: #fff;
+        border-right: 1px solid #e6ebe7;
+        box-shadow: 6px 0 24px -20px rgba(23, 34, 28, 0.24);
     }
     .sidebar-link-active {
-        background: linear-gradient(135deg, #10B981 0%, #00A335 100%);
-        box-shadow: 0 8px 20px -8px rgba(16, 185, 129, 0.7);
+        background: #eaf5ed;
+        box-shadow: inset 3px 0 #087a3b;
     }
     .sidebar-scroll::-webkit-scrollbar { width: 4px; }
     .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
-    .sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
+    .sidebar-scroll::-webkit-scrollbar-thumb { background: #d8e0da; }
     .sidebar-collapsed { width: 4rem !important; }
     .sidebar-collapsed .sidebar-label { display: none !important; }
     .sidebar-collapsed .sidebar-link { justify-content: center; padding-left: 0; padding-right: 0; }

@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Helpers\SettingsHelper;
 use App\Services\IntervalPlanService;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -10,9 +9,18 @@ use Illuminate\Database\Eloquent\Model;
 
 class TourismTrip extends Model
 {
+    /** Hoje só "uma pessoa paga tudo"; "individual" fica para exibir viagens antigas. */
     public const PAYMENT_MODES = [
         'individual' => 'Cada passageiro paga o seu',
         'group' => 'Uma pessoa paga tudo',
+    ];
+
+    /** Desconto máximo (%) — só quando a internet cobre todos os dias da viagem. */
+    public const MAX_DISCOUNT = 10;
+
+    public const PAYMENT_STATUSES = [
+        'pending' => 'Aguardando pagamento',
+        'paid' => 'Pago',
     ];
 
     /** Quando uma pessoa paga tudo: período em que a internet fica liberada. */
@@ -38,6 +46,7 @@ class TourismTrip extends Model
         'contract_number', 'title', 'bus_id', 'starts_at', 'outbound_arrives_at', 'return_departs_at', 'ends_at',
         'payment_mode', 'coverage', 'plan', 'plan_details',
         'responsible_name', 'responsible_phone', 'agreed_amount', 'passengers_count',
+        'price_24h', 'subtotal_amount', 'discount_percent',
         'notes', 'status', 'admin_notes', 'created_by',
     ];
 
@@ -48,6 +57,13 @@ class TourismTrip extends Model
         'ends_at' => 'datetime',
         'agreed_amount' => 'decimal:2',
         'passengers_count' => 'integer',
+        'price_24h' => 'decimal:2',
+        'subtotal_amount' => 'decimal:2',
+        'discount_percent' => 'decimal:2',
+        'pix_amount' => 'decimal:2',
+        'pix_expires_at' => 'datetime',
+        'paid_at' => 'datetime',
+        'paid_amount' => 'decimal:2',
     ];
 
     public function bus()
@@ -81,12 +97,10 @@ class TourismTrip extends Model
         return $user->role === 'admin' || $this->isPending();
     }
 
-    /** Preços atuais do portal (os mesmos que o passageiro vê). */
+    /** Preço atual da diária de 24h do portal (Configurações). */
     public static function pricing(): array
     {
         return [
-            'price_12h' => (float) SettingsHelper::getWifiPriceFull(),
-            'hours_12h' => (int) SettingsHelper::getSessionDuration(),
             'price_24h' => (float) IntervalPlanService::settings()['price_24h'],
         ];
     }
@@ -114,8 +128,8 @@ class TourismTrip extends Model
     }
 
     /**
-     * Cálculo pelos preços do portal, por passageiro: trecho de até 12h usa o
-     * plano de 12h; acima disso, diárias de 24h (sempre 24h cheias).
+     * Cálculo por passageiro: cada trecho é cobrado em diárias de 24h cheias
+     * (nunca o plano de 12h), tanto em "todos os dias" quanto em "ida e volta".
      */
     public static function estimateWindows(array $windows, array $pricing): array
     {
@@ -123,16 +137,11 @@ class TourismTrip extends Model
         $total = 0.0;
         foreach ($windows as $window) {
             $hours = (int) ceil($window['start']->diffInMinutes($window['end']) / 60);
-            if ($hours <= $pricing['hours_12h']) {
-                $price = $pricing['price_12h'];
-                $plan = "plano de {$pricing['hours_12h']} horas";
-            } else {
-                $days = (int) ceil($hours / 24);
-                $price = $days * $pricing['price_24h'];
-                $plan = $days.' '.($days === 1 ? 'diária' : 'diárias').' de 24h';
-            }
+            $days = max(1, (int) ceil($hours / 24));
+            $price = round($days * $pricing['price_24h'], 2);
             $total += $price;
-            $lines[] = ['label' => $window['label'], 'hours' => $hours, 'plan' => $plan, 'price' => round($price, 2)];
+            $lines[] = ['label' => $window['label'], 'hours' => $hours,
+                'plan' => $days.' '.($days === 1 ? 'diária' : 'diárias').' de 24h', 'price' => $price];
         }
 
         return ['lines' => $lines, 'per_passenger' => round($total, 2)];
@@ -141,6 +150,56 @@ class TourismTrip extends Model
     public function estimate(?array $pricing = null): array
     {
         return self::estimateWindows($this->internetWindows(), $pricing ?? self::pricing());
+    }
+
+    /**
+     * Valor total: por passageiro x passageiros, menos o desconto (até 10%,
+     * só em "todos os dias da viagem").
+     */
+    public function quote(?array $pricing = null): array
+    {
+        $estimate = $this->estimate($pricing);
+        $passengers = (int) $this->passengers_count;
+        $subtotal = round($estimate['per_passenger'] * $passengers, 2);
+        $percent = $this->coverage === 'all_days'
+            ? min(self::MAX_DISCOUNT, max(0, (float) $this->discount_percent)) : 0.0;
+        $discount = round($subtotal * $percent / 100, 2);
+
+        return $estimate + [
+            'passengers' => $passengers,
+            'subtotal' => $subtotal,
+            'discount_percent' => $percent,
+            'discount' => $discount,
+            'total' => round($subtotal - $discount, 2),
+        ];
+    }
+
+    public function isPaid(): bool
+    {
+        return $this->payment_status === 'paid';
+    }
+
+    public function hasPaymentLink(): bool
+    {
+        return (bool) $this->payment_token;
+    }
+
+    public function paymentUrl(): ?string
+    {
+        return $this->payment_token ? route('tourism.payment.show', $this->payment_token) : null;
+    }
+
+    public function paymentStatusLabel(): string
+    {
+        return self::PAYMENT_STATUSES[$this->payment_status] ?? 'Sem link de pagamento';
+    }
+
+    /** O PIX atual ainda vale para o valor total de agora? */
+    public function hasValidPix(): bool
+    {
+        return $this->pix_code
+            && $this->pix_expires_at?->isFuture()
+            && abs((float) $this->pix_amount - (float) $this->agreed_amount) < 0.005;
     }
 
     public function durationLabel(): string

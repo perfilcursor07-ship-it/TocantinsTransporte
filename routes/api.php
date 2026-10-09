@@ -63,6 +63,10 @@ Route::prefix('payment')->group(function () {
     Route::get('/export-pagbank-logs', [PaymentController::class, 'exportPagBankLogs']);
 });
 
+// Turismo: webhook PagBank próprio (não passa pelo webhook do portal)
+Route::post('/tourism/webhook/pagbank', [\App\Http\Controllers\TourismPaymentController::class, 'webhook'])
+    ->middleware('throttle:60,1');
+
 // 🔧 Reativar acesso (usuário pagou mas não conectou)
 Route::post('/reativar-acesso', [PaymentController::class, 'reactivateAccess']);
 

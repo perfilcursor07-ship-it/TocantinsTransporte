@@ -16,31 +16,31 @@
     @endphp
 
     <!-- Hero -->
-    <section class="dash-hero relative overflow-hidden rounded-2xl px-5 py-4 sm:px-6 text-white">
-        <div class="pointer-events-none absolute -top-24 -right-16 w-72 h-72 rounded-full bg-emerald-400/20 blur-3xl"></div>
-        <div class="pointer-events-none absolute -bottom-28 left-1/3 w-72 h-72 rounded-full bg-lime-300/10 blur-3xl"></div>
+    <section class="dash-hero relative overflow-hidden rounded-xl px-5 py-4 sm:px-6 text-[#17221c]">
+        <div class="pointer-events-none absolute -top-24 -right-16 w-72 h-72 rounded-full bg-emerald-400/20 blur-3xl hidden"></div>
+        <div class="pointer-events-none absolute -bottom-28 left-1/3 w-72 h-72 rounded-full bg-lime-300/10 blur-3xl hidden"></div>
 
         <div class="relative flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
-                <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-200/80">Starlink · Tocantins Transporte</p>
-                <p class="mt-1 text-xl font-extrabold tracking-tight leading-tight">{{ $greeting }}, {{ strtok(Auth::user()->name, ' ') }} 👋</p>
-                <p class="text-xs text-white/70">Visão geral do sistema WiFi Tocantins</p>
+                <p class="text-[11px] font-semibold uppercase text-[#16804a]">Starlink · Tocantins Transporte</p>
+                <p class="mt-1 text-xl font-extrabold leading-tight">{{ $greeting }}, {{ strtok(Auth::user()->name, ' ') }} 👋</p>
+                <p class="text-xs text-[#66736a]">Visão geral do sistema WiFi Tocantins</p>
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
-                <div class="rounded-xl bg-white/10 ring-1 ring-white/15 backdrop-blur px-3 py-2">
-                    <p class="text-[11px] text-white/60 leading-none">Receita hoje</p>
-                    <p class="mt-1 text-base font-extrabold leading-none">R$ {{ number_format($stats['daily_revenue'], 2, ',', '.') }}</p>
+                <div class="px-3 py-1">
+                    <p class="text-[11px] text-[#7b887f] leading-none">Receita hoje</p>
+                    <p class="mt-1 text-base font-extrabold leading-none text-[#1d2c23]">R$ {{ number_format($stats['daily_revenue'], 2, ',', '.') }}</p>
                 </div>
-                <div class="rounded-xl bg-white/10 ring-1 ring-white/15 backdrop-blur px-3 py-2">
-                    <p class="text-[11px] text-white/60 leading-none">Ônibus online</p>
-                    <p class="mt-1 text-base font-extrabold leading-none">{{ $busOnline }}<span class="text-white/50 text-sm font-bold">/{{ $busTotal }}</span></p>
+                <div class="px-3 py-1">
+                    <p class="text-[11px] text-[#7b887f] leading-none">Ônibus online</p>
+                    <p class="mt-1 text-base font-extrabold leading-none text-[#1d2c23]">{{ $busOnline }}<span class="text-[#7b887f] text-sm font-bold">/{{ $busTotal }}</span></p>
                 </div>
-                <div class="rounded-xl bg-white/10 ring-1 ring-white/15 backdrop-blur px-3 py-2">
-                    <p class="text-[11px] text-white/60 leading-none">Atualizado em</p>
-                    <p class="mt-1 text-sm font-bold leading-none" id="current-datetime">{{ now()->format('d/m/Y H:i') }}</p>
+                <div class="px-3 py-1">
+                    <p class="text-[11px] text-[#7b887f] leading-none">Atualizado em</p>
+                    <p class="mt-1 text-sm font-bold leading-none text-[#1d2c23]" id="current-datetime">{{ now()->format('d/m/Y H:i') }}</p>
                 </div>
-                <a href="{{ route('admin.mikrotik.remote.index') }}" class="inline-flex items-center gap-2 rounded-xl bg-white text-green-dark px-3.5 py-2.5 text-xs font-bold shadow-lg shadow-black/10 hover:bg-emerald-50 transition">
+                <a href="{{ route('admin.mikrotik.remote.index') }}" class="inline-flex items-center gap-2 rounded-lg bg-[#087a3b] text-white px-3.5 py-2.5 text-xs font-bold hover:bg-[#066a33] transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"/></svg>
                     Painel MikroTik
                 </a>
@@ -49,7 +49,7 @@
     </section>
 
     <!-- Status do Sistema -->
-    <section class="dash-card rounded-2xl p-2">
+    <section class="dash-card rounded-xl p-2">
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
             @php
                 $statusItems = [
@@ -95,16 +95,16 @@
     <section class="grid grid-cols-2 xl:grid-cols-4 gap-3">
 
         <!-- Ônibus online -->
-        <div class="dash-card rounded-2xl p-4">
+        <div class="dash-card rounded-xl p-4">
             <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold text-muted">Ônibus online</p>
                 <div class="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
                     <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/></svg>
                 </div>
             </div>
-            <p class="mt-2 text-2xl font-extrabold text-ink tracking-tight">{{ $busOnline }}<span class="text-base text-muted font-bold">/{{ $busTotal }}</span></p>
+            <p class="mt-2 text-2xl font-extrabold text-ink">{{ $busOnline }}<span class="text-base text-muted font-bold">/{{ $busTotal }}</span></p>
             <div class="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div class="h-full bg-gradient-to-r from-emerald-400 to-green-600 rounded-full" style="width: {{ $busTotal > 0 ? round($busOnline / $busTotal * 100) : 0 }}%"></div>
+                <div class="h-full bg-emerald-500 rounded-full" style="width: {{ $busTotal > 0 ? round($busOnline / $busTotal * 100) : 0 }}%"></div>
             </div>
             <div class="mt-2 flex items-center justify-between text-[11px]">
                 <span class="inline-flex items-center gap-1.5 font-semibold text-emerald-700">
@@ -117,14 +117,14 @@
         </div>
 
         <!-- Receita hoje -->
-        <div class="dash-card rounded-2xl p-4">
+        <div class="dash-card rounded-xl p-4">
             <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold text-muted">Receita hoje</p>
                 <div class="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center">
                     <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 </div>
             </div>
-            <p class="mt-2 text-2xl font-extrabold text-ink tracking-tight">R$ {{ number_format($stats['daily_revenue'], 2, ',', '.') }}</p>
+            <p class="mt-2 text-2xl font-extrabold text-ink">R$ {{ number_format($stats['daily_revenue'], 2, ',', '.') }}</p>
             <div class="mt-3 flex items-center justify-between text-[11px]">
                 <span class="text-muted font-medium">{{ $stats['today_payments_count'] ?? 0 }} pagamentos</span>
                 <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-bold {{ $diff >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700' }}">
@@ -135,14 +135,14 @@
         </div>
 
         <!-- Receita semana -->
-        <div class="dash-card rounded-2xl p-4">
+        <div class="dash-card rounded-xl p-4">
             <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold text-muted">Últimos 7 dias</p>
                 <div class="w-8 h-8 bg-sky-50 rounded-lg flex items-center justify-center">
                     <svg class="w-4 h-4 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                 </div>
             </div>
-            <p class="mt-2 text-2xl font-extrabold text-ink tracking-tight">R$ {{ number_format($stats['week_revenue'], 2, ',', '.') }}</p>
+            <p class="mt-2 text-2xl font-extrabold text-ink">R$ {{ number_format($stats['week_revenue'], 2, ',', '.') }}</p>
             <div class="mt-3 flex items-center justify-between text-[11px]">
                 <span class="text-muted font-medium">Ontem: <span class="font-bold text-ink2">R$ {{ number_format($stats['yesterday_revenue'], 2, ',', '.') }}</span></span>
                 <span class="text-muted font-medium">{{ $stats['yesterday_payments_count'] ?? 0 }} pgtos</span>
@@ -151,14 +151,14 @@
 
         <!-- Pendentes -->
         @php $hasPending = $stats['pending_payments_count'] > 0; @endphp
-        <div class="dash-card rounded-2xl p-4 {{ $hasPending ? 'ring-2 ring-amber-300/60' : '' }}">
+        <div class="dash-card rounded-xl p-4 {{ $hasPending ? 'ring-1 ring-amber-200' : '' }}">
             <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold text-muted">Pendentes hoje</p>
                 <div class="w-8 h-8 {{ $hasPending ? 'bg-amber-50' : 'bg-gray-100' }} rounded-lg flex items-center justify-center">
                     <svg class="w-4 h-4 {{ $hasPending ? 'text-amber-600' : 'text-muted' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 </div>
             </div>
-            <p class="mt-2 text-2xl font-extrabold tracking-tight {{ $hasPending ? 'text-amber-600' : 'text-ink' }}">{{ $stats['pending_payments_count'] }}</p>
+            <p class="mt-2 text-2xl font-extrabold {{ $hasPending ? 'text-amber-600' : 'text-ink' }}">{{ $stats['pending_payments_count'] }}</p>
             <div class="mt-3 flex items-center justify-between text-[11px]">
                 <span class="text-muted font-medium">R$ {{ number_format($stats['pending_payments'], 2, ',', '.') }}</span>
                 <span class="text-muted font-medium">aguardando PIX</span>
@@ -178,11 +178,11 @@
         @endphp
         @foreach($miniStats as $mini)
         <div class="dash-card rounded-xl px-3 py-2.5 flex items-center gap-2.5">
-            <div class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+            <div class="w-8 h-8 rounded-lg bg-[#f1f5f2] flex items-center justify-center flex-shrink-0">
                 <svg class="w-4 h-4 text-ink2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $mini['icon'] }}"/></svg>
             </div>
             <div class="min-w-0">
-                <p class="text-base font-extrabold tracking-tight leading-tight {{ $mini['tone'] }} truncate">{{ $mini['value'] }}</p>
+                <p class="text-base font-extrabold leading-tight {{ $mini['tone'] }} truncate">{{ $mini['value'] }}</p>
                 <p class="text-[11px] text-muted font-medium">{{ $mini['label'] }}</p>
             </div>
         </div>
@@ -191,7 +191,7 @@
 
     <!-- Gráficos -->
     <section class="grid grid-cols-1 xl:grid-cols-5 gap-3">
-        <div class="dash-card rounded-2xl p-4 xl:col-span-3">
+        <div class="dash-card rounded-xl p-4 xl:col-span-3">
             <div class="flex items-start justify-between mb-3">
                 <div>
                     <h3 class="text-sm font-bold text-ink">Receita dos últimos 7 dias</h3>
@@ -203,7 +203,7 @@
                 <canvas id="revenueChart"></canvas>
             </div>
         </div>
-        <div class="dash-card rounded-2xl p-4 xl:col-span-2">
+        <div class="dash-card rounded-xl p-4 xl:col-span-2">
             <div class="flex items-start justify-between mb-3">
                 <div>
                     <h3 class="text-sm font-bold text-ink">Conexões por hora</h3>
@@ -220,7 +220,7 @@
     @php
         $todayFleetTotal = $buses->sum(fn ($b) => $bus_revenue_today[$b->mikrotik_serial]->total ?? 0);
     @endphp
-    <section class="dash-card rounded-2xl overflow-hidden">
+    <section class="dash-card rounded-xl overflow-hidden">
         <div class="flex flex-wrap justify-between items-center gap-3 px-4 py-3 border-b border-black/[0.06]">
             <div>
                 <h3 class="text-sm font-bold text-ink">Ônibus cadastrados</h3>
@@ -230,7 +230,7 @@
                     <span class="text-muted font-medium">{{ $buses->count() }} no total · Receita hoje <span class="font-bold text-ink2">R$ {{ number_format($todayFleetTotal, 2, ',', '.') }}</span></span>
                 </div>
             </div>
-            <a href="{{ route('admin.mikrotik.remote.index') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-ink text-white font-bold rounded-lg text-xs hover:bg-ink2 transition-colors">
+            <a href="{{ route('admin.mikrotik.remote.index') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#eaf5ed] text-[#17633f] font-bold rounded-lg text-xs hover:bg-[#dff0e4] transition-colors">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"/></svg>
                 Painel MikroTik
             </a>
@@ -246,13 +246,13 @@
                     $revWeek = $bus_revenue_week[$bus->mikrotik_serial] ?? null;
                     $todayTotal = $revToday->total ?? 0;
                 @endphp
-                <div class="rounded-xl p-3 ring-1 transition-all hover:shadow-md {{ $isOnline ? 'ring-emerald-200 bg-gradient-to-br from-emerald-50/70 to-white' : 'ring-black/[0.06] bg-white' }}">
+                <div class="rounded-lg p-3 ring-1 transition-colors hover:shadow-sm {{ $isOnline ? 'ring-emerald-200 bg-[#f7fbf8]' : 'ring-black/[0.06] bg-white' }}">
                     <div class="flex items-center justify-between gap-2">
                         <div class="flex items-center gap-2 min-w-0">
                             <span class="w-2 h-2 rounded-full flex-shrink-0 {{ $isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-gray-300' }}"></span>
                             <p class="text-[13px] font-bold text-ink truncate">{{ $bus->name ?: 'Sem nome' }}</p>
                         </div>
-                        <span class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider flex-shrink-0 {{ $isOnline ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-muted' }}">
+                        <span class="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase flex-shrink-0 {{ $isOnline ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-muted' }}">
                             {{ $isOnline ? 'Online' : 'Offline' }}
                         </span>
                     </div>
@@ -260,7 +260,7 @@
                     <div class="mt-2 flex items-end justify-between gap-2">
                         <div>
                             <p class="text-[10px] text-muted leading-none">Receita hoje</p>
-                            <p class="mt-0.5 text-base font-extrabold leading-tight tracking-tight {{ $todayTotal > 0 ? 'text-emerald-700' : 'text-gray-400' }}">R$ {{ number_format($todayTotal, 2, ',', '.') }}</p>
+                            <p class="mt-0.5 text-base font-extrabold leading-tight {{ $todayTotal > 0 ? 'text-emerald-700' : 'text-gray-400' }}">R$ {{ number_format($todayTotal, 2, ',', '.') }}</p>
                         </div>
                         <div class="text-right">
                             <p class="text-[10px] text-muted leading-none">7 dias</p>
@@ -293,17 +293,17 @@
 
 <style>
     .dash-hero {
-        background:
-            radial-gradient(90% 120% at 0% 0%, #0f5132 0%, transparent 60%),
-            linear-gradient(135deg, #0C1A13 0%, #0f3d25 55%, #007A28 100%);
-        box-shadow: 0 20px 40px -20px rgba(0, 80, 40, 0.55);
+        background: #fff;
+        border: 1px solid #e1e7e2;
+        box-shadow: 0 1px 3px rgba(23, 34, 28, 0.05);
     }
     .dash-card {
         background: #fff;
-        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 0 0 1px rgba(16, 24, 40, 0.05);
-        transition: box-shadow .2s ease, transform .2s ease;
+        border-radius: 12px;
+        box-shadow: 0 1px 2px rgba(23, 34, 28, 0.04), 0 0 0 1px #e6ebe7;
+        transition: box-shadow .16s ease;
     }
-    .dash-card:hover { box-shadow: 0 12px 28px -12px rgba(16, 24, 40, 0.18), 0 0 0 1px rgba(16, 24, 40, 0.06); }
+    .dash-card:hover { box-shadow: 0 2px 6px rgba(23, 34, 28, 0.08), 0 0 0 1px #dce4de; }
 </style>
 
 <script>
@@ -319,8 +319,8 @@
     // Gráfico de Receita
     const revenueCtx = document.getElementById('revenueChart').getContext('2d');
     const revenueGradient = revenueCtx.createLinearGradient(0, 0, 0, 180);
-    revenueGradient.addColorStop(0, 'rgba(0, 163, 53, 0.25)');
-    revenueGradient.addColorStop(1, 'rgba(0, 163, 53, 0.01)');
+    revenueGradient.addColorStop(0, 'rgba(8, 122, 59, 0.14)');
+    revenueGradient.addColorStop(1, 'rgba(8, 122, 59, 0.01)');
     
     new Chart(revenueCtx, {
         type: 'line',
@@ -329,12 +329,12 @@
             datasets: [{
                 label: 'Receita (R$)',
                 data: {!! json_encode($revenue_chart['data']) !!},
-                borderColor: '#00A335',
+                borderColor: '#087a3b',
                 backgroundColor: revenueGradient,
                 borderWidth: 2.5,
                 tension: 0.4,
                 fill: true,
-                pointBackgroundColor: '#00A335',
+                pointBackgroundColor: '#087a3b',
                 pointBorderColor: '#fff',
                 pointBorderWidth: 2,
                 pointRadius: 4,
@@ -378,8 +378,8 @@
             datasets: [{
                 label: 'Conexões',
                 data: {!! json_encode($connections_chart['data']) !!},
-                backgroundColor: 'rgba(0, 163, 53, 0.75)',
-                hoverBackgroundColor: '#00A335',
+                backgroundColor: 'rgba(8, 122, 59, 0.72)',
+                hoverBackgroundColor: '#087a3b',
                 borderRadius: 6,
                 borderSkipped: false,
                 barThickness: 20,

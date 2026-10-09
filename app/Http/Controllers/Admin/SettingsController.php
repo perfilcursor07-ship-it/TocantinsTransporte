@@ -33,6 +33,9 @@ class SettingsController extends Controller
             'video_discount_amount' => SystemSetting::getValue('video_discount_amount', '1.00'),
             'plan_short_currently_active' => \App\Helpers\SettingsHelper::isPlanShortCurrentlyActive(),
             'unpaid_reminder_enabled' => SystemSetting::getValue('unpaid_reminder_enabled', '1'),
+            'promo_timer_enabled' => SystemSetting::getValue('promo_timer_enabled', '0'),
+            'promo_timer_minutes' => SystemSetting::getValue('promo_timer_minutes', '5'),
+            'promo_timer_after_price' => SystemSetting::getValue('promo_timer_after_price', '8.99'),
         ];
 
         return view('admin.settings.index', compact('settings'));
@@ -60,6 +63,11 @@ class SettingsController extends Controller
             'video_discount_enabled' => 'nullable|in:0,1',
             'video_discount_amount' => 'required|numeric|min:0.01|max:99.99',
             'unpaid_reminder_enabled' => 'nullable|in:0,1',
+            'promo_timer_enabled' => 'nullable|in:0,1',
+            'promo_timer_minutes' => 'required|integer|min:1|max:60',
+            'promo_timer_after_price' => 'required|numeric|max:999.99|gt:wifi_price_full',
+        ], [
+            'promo_timer_after_price.gt' => 'O preço depois do cronômetro precisa ser maior que o preço da promoção (Viagem completa).',
         ]);
 
         SystemSetting::setValue('wifi_price', $request->wifi_price);
@@ -78,6 +86,9 @@ class SettingsController extends Controller
         SystemSetting::setValue('video_discount_enabled', $request->input('video_discount_enabled', '0'));
         SystemSetting::setValue('video_discount_amount', $request->video_discount_amount);
         SystemSetting::setValue('unpaid_reminder_enabled', $request->input('unpaid_reminder_enabled', '0'));
+        SystemSetting::setValue('promo_timer_enabled', $request->input('promo_timer_enabled', '0'));
+        SystemSetting::setValue('promo_timer_minutes', $request->promo_timer_minutes);
+        SystemSetting::setValue('promo_timer_after_price', $request->promo_timer_after_price);
         
         // Salvar conta e credenciais PagBank
         if ($request->filled('pagbank_account')) {

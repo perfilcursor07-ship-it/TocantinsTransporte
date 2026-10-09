@@ -5,15 +5,17 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Bus;
 use App\Models\TourismTrip;
+use App\Services\TourismPaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 /**
- * Módulo Turismo: a equipe cadastra a viagem (ônibus, período, forma de
- * pagamento e plano) e o administrador decide depois como configurar o carro.
- * Por enquanto é só registro — nada é enviado ao MikroTik.
+ * Módulo Turismo: a equipe cadastra a viagem (ônibus, período e quem paga a
+ * internet de todos), o sistema calcula o valor e gera o link de pagamento PIX.
+ * O administrador decide depois como configurar o carro — nada vai ao MikroTik.
  */
 class TourismTripController extends Controller
 {
@@ -40,7 +42,7 @@ class TourismTripController extends Controller
     public function create()
     {
         return view('admin.tourism.form', [
-            'trip' => new TourismTrip(['payment_mode' => 'individual', 'status' => 'pending']),
+            'trip' => new TourismTrip(['payment_mode' => 'group', 'status' => 'pending']),
             'buses' => $this->buses(),
             'pricing' => TourismTrip::pricing(),
         ]);
@@ -52,10 +54,10 @@ class TourismTripController extends Controller
         $data['created_by'] = $request->user()->id;
         $data['status'] = 'pending';
 
-        TourismTrip::create($data);
+        $trip = TourismTrip::create($data);
 
-        return redirect()->route('admin.tourism.index')
-            ->with('success', 'Viagem cadastrada! Agora o administrador vai configurar o ônibus.');
+        return redirect()->route('admin.tourism.edit', $trip)
+            ->with('success', 'Viagem cadastrada! Agora gere o link de pagamento e envie para quem vai pagar.');
     }
 
     public function edit(Request $request, TourismTrip $trip)
@@ -96,6 +98,31 @@ class TourismTripController extends Controller
         return redirect()->route('admin.tourism.index')->with('success', 'Viagem excluída.');
     }
 
+    /** Gera o link de pagamento PIX (PagBank) para enviar a quem vai pagar. */
+    public function generatePaymentLink(TourismTrip $trip, TourismPaymentService $payments)
+    {
+        if ($trip->status === 'cancelled') {
+            return back()->with('error', 'Viagem cancelada não recebe pagamento.');
+        }
+
+        try {
+            $payments->createLink($trip);
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Link de pagamento gerado! Copie e envie para '.$trip->responsible_name.'.');
+    }
+
+    /** Consulta o PagBank agora (caso o aviso automático ainda não tenha chegado). */
+    public function checkPayment(TourismTrip $trip, TourismPaymentService $payments)
+    {
+        $payments->refreshStatus($trip);
+
+        return back()->with($trip->isPaid() ? 'success' : 'error',
+            $trip->isPaid() ? 'Pagamento confirmado!' : 'O pagamento ainda não foi identificado no PagBank.');
+    }
+
     private function validated(Request $request, ?TourismTrip $trip = null): array
     {
         $data = $request->validate([
@@ -104,29 +131,30 @@ class TourismTripController extends Controller
             'bus_id' => ['required', 'integer', 'exists:buses,id'],
             'starts_at' => ['required', 'date'],
             'ends_at' => ['required', 'date', 'after:starts_at'],
-            'payment_mode' => ['required', Rule::in(array_keys(TourismTrip::PAYMENT_MODES))],
-            // Só quando uma pessoa paga tudo: período da internet e como será o plano.
+            // Uma pessoa paga a internet de todos: período coberto, quem paga e desconto.
             // (exclude_unless: campos escondidos na tela não contam quando não se aplicam)
-            'coverage' => ['exclude_unless:payment_mode,group', 'required', Rule::in(array_keys(TourismTrip::COVERAGES))],
-            'outbound_arrives_at' => ['exclude_unless:payment_mode,group', 'exclude_unless:coverage,round_trip', 'required', 'date'],
-            'return_departs_at' => ['exclude_unless:payment_mode,group', 'exclude_unless:coverage,round_trip', 'required', 'date'],
-            'plan_details' => ['exclude_unless:payment_mode,group', 'required', 'string', 'max:2000'],
-            'responsible_name' => ['exclude_unless:payment_mode,group', 'required', 'string', 'max:120'],
-            'responsible_phone' => ['exclude_unless:payment_mode,group', 'required', 'string', 'max:20'],
-            'agreed_amount' => ['exclude_unless:payment_mode,group', 'nullable', 'numeric', 'min:0', 'max:999999'],
-            'passengers_count' => ['nullable', 'integer', 'min:1', 'max:200'],
+            'coverage' => ['required', Rule::in(array_keys(TourismTrip::COVERAGES))],
+            'outbound_arrives_at' => ['exclude_unless:coverage,round_trip', 'required', 'date'],
+            'return_departs_at' => ['exclude_unless:coverage,round_trip', 'required', 'date'],
+            'discount_percent' => ['exclude_unless:coverage,all_days', 'nullable', 'numeric', 'min:0', 'max:'.TourismTrip::MAX_DISCOUNT],
+            'plan_details' => ['nullable', 'string', 'max:2000'],
+            'responsible_name' => ['required', 'string', 'max:120'],
+            'responsible_phone' => ['required', 'string', 'max:20'],
+            'passengers_count' => ['required', 'integer', 'min:1', 'max:200'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ], [
             'ends_at.after' => 'A chegada da volta precisa ser depois da saída da ida.',
             'coverage.required' => 'Escolha se a pessoa paga a internet de todos os dias ou só da ida e da volta.',
             'outbound_arrives_at.required' => 'Informe a chegada da ida.',
             'return_departs_at.required' => 'Informe a saída da volta.',
-            'plan_details.required' => 'Descreva como será o plano de internet.',
+            'discount_percent.max' => 'O desconto é de no máximo '.TourismTrip::MAX_DISCOUNT.'%.',
+            'passengers_count.required' => 'Informe quantos passageiros — o valor total depende disso.',
             'responsible_name.required' => 'Informe quem vai pagar por todos.',
             'responsible_phone.required' => 'Informe o telefone de quem vai pagar por todos.',
         ], [
             'contract_number' => 'número do contrato', 'title' => 'contratante / grupo', 'bus_id' => 'ônibus',
-            'starts_at' => 'saída da ida', 'ends_at' => 'chegada da volta', 'payment_mode' => 'forma de pagamento',
+            'starts_at' => 'saída da ida', 'ends_at' => 'chegada da volta', 'passengers_count' => 'passageiros',
+            'discount_percent' => 'desconto',
         ]);
 
         $data['starts_at'] = Carbon::parse($data['starts_at']);
@@ -155,15 +183,24 @@ class TourismTripController extends Controller
             )]);
         }
 
-        // Cada passageiro paga o seu: ele escolhe o plano no portal; não há
-        // responsável, valor combinado nem período/plano definido aqui.
-        if ($data['payment_mode'] === 'individual') {
-            foreach (['responsible_name', 'responsible_phone', 'agreed_amount', 'coverage',
-                'outbound_arrives_at', 'return_departs_at', 'plan_details'] as $field) {
-                $data[$field] = null;
-            }
-        }
+        // Valor calculado pelo sistema: diárias de 24h x passageiros, com desconto
+        // de até 10% só quando a internet cobre todos os dias da viagem.
+        $data['payment_mode'] = 'group';
         $data['plan'] = null; // substituído por "coverage" + "plan_details"
+        $data['discount_percent'] = $data['coverage'] === 'all_days' ? (float) ($data['discount_percent'] ?? 0) : 0;
+        // Já paga: mantém o preço da diária usado na cobrança.
+        $pricing = $trip?->isPaid() && $trip->price_24h ? ['price_24h' => (float) $trip->price_24h] : TourismTrip::pricing();
+        $quote = (new TourismTrip($data))->quote($pricing);
+        $data['price_24h'] = $pricing['price_24h'];
+        $data['subtotal_amount'] = $quote['subtotal'];
+        $data['agreed_amount'] = $quote['total'];
+
+        if ($trip?->isPaid() && abs((float) $trip->agreed_amount - $quote['total']) >= 0.005) {
+            throw ValidationException::withMessages(['passengers_count' => sprintf(
+                'O pagamento de R$ %s já foi confirmado. Passageiros, datas e desconto não podem mudar o valor.',
+                number_format((float) $trip->agreed_amount, 2, ',', '.')
+            )]);
+        }
 
         return $data;
     }

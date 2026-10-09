@@ -3,255 +3,146 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login — WiFi Tocantins Admin</title>
+    <title>Entrar — WiFi Tocantins</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        surface: '#F8F9FA',
-                        ink:     '#111111',
-                        ink2:    '#333333',
-                        muted:   '#888888',
-                        border:  '#E5E5E5',
-                        green: {
-                            DEFAULT: '#00A335',
-                            light:   '#00C040',
-                            dark:    '#007A28',
-                            pale:    '#E8F5E9',
-                        },
-                        red: {
-                            DEFAULT: '#D32F2F',
-                            pale:    '#FFEBEE',
-                        },
-                    },
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    boxShadow: {
-                        card:  '0 1px 3px rgba(0,0,0,0.08)',
-                        hover: '0 4px 12px rgba(0,0,0,0.10)',
-                        modal: '0 20px 60px rgba(0,0,0,0.20)',
-                    },
-                    keyframes: {
-                        fadeUp: {
-                            '0%':   { opacity: '0', transform: 'translateY(24px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' },
-                        },
-                        pulse2: {
-                            '0%,100%': { opacity: '1' },
-                            '50%':     { opacity: '.4' },
-                        },
-                    },
-                    animation: {
-                        'fade-up': 'fadeUp .5s cubic-bezier(.22,1,.36,1) both',
-                        'pulse2':  'pulse2 2s ease-in-out infinite',
-                    },
-                }
-            }
-        }
-    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root { color-scheme: light; }
+        body { font-family: Inter, sans-serif; }
+    </style>
 </head>
-<body class="font-sans bg-surface min-h-screen flex items-center justify-center px-4 py-12">
-
-    <!-- Background decorativo -->
-    <div class="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
-        <!-- blob verde top-left -->
-        <div class="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-green/8 blur-3xl"></div>
-        <!-- blob verde bottom-right -->
-        <div class="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-green-light/8 blur-3xl"></div>
-        <!-- grid sutil -->
-        <div class="absolute inset-0 opacity-[0.025]"
-             style="background-image:linear-gradient(#00A335 1px,transparent 1px),linear-gradient(90deg,#00A335 1px,transparent 1px);background-size:40px 40px"></div>
-    </div>
-
-    <div class="relative w-full max-w-sm animate-fade-up">
-
-        <!-- ── TÍTULO ── -->
-        <div class="text-center mb-8">
-            <!-- ícone satélite -->
-            <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-green-dark to-green shadow-hover mb-4">
-                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-                          d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
-                </svg>
+<body class="min-h-screen bg-[#f3f6f4] text-[#17221c] antialiased">
+    <main class="grid min-h-screen place-items-center px-5 py-10">
+        <div class="w-full max-w-[420px]">
+            <div class="mb-7 flex justify-center">
+                <img src="{{ asset('images/logo.png') }}" alt="WiFi Tocantins" class="h-11 w-auto object-contain">
             </div>
 
-            <p class="text-[10px] font-bold uppercase tracking-widest text-green mb-1">Starlink</p>
-            <h1 class="text-2xl font-bold text-ink leading-tight">Tocantins Transporte</h1>
-            <p class="text-sm text-muted mt-0.5">WiFi Tocantins · Painel Administrativo</p>
-
-            <!-- badge online -->
-            <div class="inline-flex items-center gap-1.5 mt-3 bg-green-pale border border-green/20 px-3 py-1 rounded-full">
-                <span class="w-1.5 h-1.5 rounded-full bg-green animate-pulse2"></span>
-                <span class="text-[10px] font-semibold text-green uppercase tracking-wider">Sistema Online</span>
-            </div>
-        </div>
-
-        <!-- ── CARD PRINCIPAL ── -->
-        <div class="bg-white border border-border rounded-2xl shadow-modal p-6">
-
-            <!-- Hero strip -->
-            <div class="bg-gradient-to-r from-green-dark via-green to-green-light rounded-xl px-4 py-3 mb-6 flex items-center gap-3">
-                <div class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
-                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                    </svg>
+            <section class="w-full rounded-xl border border-[#e1e7e2] bg-white p-6 shadow-[0_12px_40px_rgba(23,34,28,0.08)] sm:p-8" aria-label="Acesso à conta">
+                <div class="mb-8">
+                    <div class="mb-6 inline-flex items-center gap-2 text-xs font-semibold text-emerald-800">
+                        <span class="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-100 text-emerald-800" aria-hidden="true">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3 5 6v5c0 4.4 2.9 8.3 7 9.5 4.1-1.2 7-5.1 7-9.5V6l-7-3Zm-3 9 2 2 4-4"/>
+                            </svg>
+                        </span>
+                        Acesso restrito a administradores
+                    </div>
+                    <p class="mt-2 text-sm leading-6 text-[#66736a]">Informe suas credenciais para continuar.</p>
                 </div>
-                <div>
-                    <p class="text-white font-semibold text-sm leading-none">Área Restrita</p>
-                    <p class="text-white/70 text-[10px] mt-0.5">Acesso somente para administradores</p>
-                </div>
-            </div>
 
-            <!-- Alertas -->
-            @if ($errors->any())
-                <div class="flex items-start gap-2.5 bg-red-pale border border-red/20 rounded-xl px-3.5 py-3 mb-5">
-                    <svg class="w-4 h-4 text-red flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-                    </svg>
+                @if ($errors->any())
+                    <div role="alert" aria-live="polite" class="mb-6 flex gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3.5 text-sm text-red-800">
+                        <svg class="mt-0.5 h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 9v3m0 4h.01M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>
+                        </svg>
+                        <div>
+                            @foreach ($errors->all() as $error)
+                                <p>{{ $error }}</p>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
+                @if (session('success'))
+                    <div role="status" class="mb-6 flex gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3.5 text-sm text-emerald-800">
+                        <svg class="mt-0.5 h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 12 4 4L19 6"/>
+                        </svg>
+                        <p>{{ session('success') }}</p>
+                    </div>
+                @endif
+
+                <form method="POST" action="{{ route('login') }}" id="login-form" class="space-y-5">
+                    @csrf
+
                     <div>
-                        @foreach ($errors->all() as $error)
-                            <p class="text-xs text-red font-medium">{{ $error }}</p>
-                        @endforeach
-                    </div>
-                </div>
-            @endif
-
-            @if (session('success'))
-                <div class="flex items-center gap-2.5 bg-green-pale border border-green/20 rounded-xl px-3.5 py-3 mb-5">
-                    <svg class="w-4 h-4 text-green flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                    </svg>
-                    <p class="text-xs text-green font-medium">{{ session('success') }}</p>
-                </div>
-            @endif
-
-            <!-- Formulário -->
-            <form method="POST" action="{{ route('login') }}" id="login-form" class="space-y-4">
-                @csrf
-
-                <!-- E-mail -->
-                <div>
-                    <label for="email" class="block text-[11px] font-semibold text-ink2 uppercase tracking-wider mb-1.5">
-                        E-mail
-                    </label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="h-4 w-4 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/>
-                            </svg>
+                        <label for="email" class="mb-2 block text-sm font-semibold text-[#29372e]">E-mail</label>
+                        <div class="relative">
+                            <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-[#849087]" aria-hidden="true">
+                                <svg class="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Zm0 1 8 6 8-6"/>
+                                </svg>
+                            </span>
+                            <input id="email" name="email" type="email" autocomplete="username" required value="{{ old('email') }}" placeholder="seu@email.com"
+                                   aria-invalid="{{ $errors->has('email') ? 'true' : 'false' }}"
+                                   class="h-[50px] w-full rounded-lg border border-[#d7dfd9] bg-white pl-11 pr-4 text-sm text-[#17221c] outline-none transition placeholder:text-[#9aa59d] hover:border-[#aab8ae] focus:border-emerald-700 focus:ring-4 focus:ring-emerald-700/10 @error('email') border-red-400 @enderror">
                         </div>
-                        <input
-                            id="email" name="email" type="email"
-                            autocomplete="email" required
-                            value="{{ old('email') }}"
-                            placeholder="seu@email.com"
-                            class="w-full pl-9 pr-4 py-2.5 text-sm text-ink bg-surface border border-border rounded-xl
-                                   focus:outline-none focus:ring-2 focus:ring-green/30 focus:border-green
-                                   transition-all placeholder:text-muted
-                                   @error('email') border-red focus:ring-red/30 @enderror"
-                        >
                     </div>
-                </div>
 
-                <!-- Senha -->
-                <div>
-                    <label for="password" class="block text-[11px] font-semibold text-ink2 uppercase tracking-wider mb-1.5">
-                        Senha
-                    </label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="h-4 w-4 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                            </svg>
+                    <div>
+                        <label for="password" class="mb-2 block text-sm font-semibold text-[#29372e]">Senha</label>
+                        <div class="relative">
+                            <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-[#849087]" aria-hidden="true">
+                                <svg class="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 10V7a5 5 0 0 1 10 0v3m-11 0h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Zm6 4v3"/>
+                                </svg>
+                            </span>
+                            <input id="password" name="password" type="password" autocomplete="current-password" required placeholder="Sua senha"
+                                   aria-invalid="{{ $errors->has('password') ? 'true' : 'false' }}"
+                                   class="h-[50px] w-full rounded-lg border border-[#d7dfd9] bg-white pl-11 pr-12 text-sm text-[#17221c] outline-none transition placeholder:text-[#9aa59d] hover:border-[#aab8ae] focus:border-emerald-700 focus:ring-4 focus:ring-emerald-700/10 @error('password') border-red-400 @enderror">
+                            <button type="button" id="toggle-password" aria-label="Mostrar senha" aria-pressed="false" title="Mostrar senha"
+                                    class="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-lg text-[#7a887e] transition hover:text-[#17633f] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-700">
+                                <svg id="eye-icon" class="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Zm9.5 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+                                </svg>
+                            </button>
                         </div>
-                        <input
-                            id="password" name="password" type="password"
-                            autocomplete="current-password" required
-                            placeholder="••••••••"
-                            class="w-full pl-9 pr-10 py-2.5 text-sm text-ink bg-surface border border-border rounded-xl
-                                   focus:outline-none focus:ring-2 focus:ring-green/30 focus:border-green
-                                   transition-all placeholder:text-muted
-                                   @error('password') border-red focus:ring-red/30 @enderror"
-                        >
-                        <!-- toggle senha -->
-                        <button type="button" id="toggle-password"
-                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-muted hover:text-ink2 transition-colors">
-                            <svg id="eye-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                            </svg>
-                        </button>
                     </div>
-                </div>
 
-                <!-- Lembrar-me -->
-                <div class="flex items-center justify-between pt-1">
-                    <label class="flex items-center gap-2 cursor-pointer select-none">
-                        <input type="checkbox" name="remember"
-                               class="w-3.5 h-3.5 rounded border-border text-green focus:ring-green/30 accent-green">
-                        <span class="text-xs text-muted">Lembrar-me</span>
-                    </label>
-                </div>
+                    <div class="flex items-center justify-between pt-1">
+                        <label for="remember" class="inline-flex cursor-pointer select-none items-center gap-2.5 text-sm text-[#66736a]">
+                            <input id="remember" type="checkbox" name="remember" @checked(old('remember')) class="h-4 w-4 rounded border-[#bcc8bf] accent-emerald-700 focus:ring-emerald-700/20">
+                            Lembrar-me
+                        </label>
+                        <span class="inline-flex items-center gap-1.5 text-xs text-[#7b887f]">
+                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 10V7a5 5 0 0 1 10 0v3m-11 0h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z"/>
+                            </svg>
+                            Conexão segura
+                        </span>
+                    </div>
 
-                <!-- Botão submit -->
-                <button type="submit" id="submit-btn"
-                        class="w-full bg-green hover:bg-green-light active:bg-green-dark text-white font-semibold text-sm
-                               py-2.5 px-4 rounded-xl shadow-card hover:shadow-hover
-                               transition-all duration-200 flex items-center justify-center gap-2 mt-2">
-                    <svg id="btn-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
-                    </svg>
-                    <span id="btn-text">Entrar</span>
-                </button>
-            </form>
+                    <button type="submit" id="submit-btn"
+                            class="mt-2 inline-flex h-[50px] w-full items-center justify-center gap-2 rounded-lg bg-[#087a3b] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#066a33] focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-700/25 active:bg-[#055a2b]">
+                        <svg id="btn-icon" class="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10 17l5-5-5-5m5 5H3m9-9h6a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3h-6"/>
+                        </svg>
+                        <span id="btn-text">Entrar</span>
+                    </button>
+                </form>
+
+                <p class="mt-8 border-t border-[#e1e7e2] pt-5 text-center text-xs leading-5 text-[#849087]">
+                    © {{ date('Y') }} WiFi Tocantins Express · Acesso administrativo
+                </p>
+            </section>
         </div>
-
-        <!-- ── FOOTER ── -->
-        <p class="text-center text-[10px] text-muted mt-6">
-            © {{ date('Y') }} WiFi Tocantins Express · Desenvolvido por Érick Vinicius v2.0
-        </p>
-    </div>
+    </main>
 
     <script>
-        // Auto-focus
-        document.getElementById('email').focus();
-
-        // Toggle senha
         const toggleBtn = document.getElementById('toggle-password');
-        const pwdInput  = document.getElementById('password');
-        const eyeIcon   = document.getElementById('eye-icon');
+        const pwdInput = document.getElementById('password');
+        const eyeIcon = document.getElementById('eye-icon');
+
         toggleBtn.addEventListener('click', () => {
-            const isText = pwdInput.type === 'text';
-            pwdInput.type = isText ? 'password' : 'text';
-            eyeIcon.innerHTML = isText
-                ? `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                         d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                         d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>`
-                : `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                         d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>`;
+            const showPassword = pwdInput.type === 'password';
+            pwdInput.type = showPassword ? 'text' : 'password';
+            toggleBtn.setAttribute('aria-pressed', String(showPassword));
+            toggleBtn.setAttribute('aria-label', showPassword ? 'Ocultar senha' : 'Mostrar senha');
+            toggleBtn.setAttribute('title', showPassword ? 'Ocultar senha' : 'Mostrar senha');
+            eyeIcon.innerHTML = showPassword
+                ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8m-5.5-5.5A9.8 9.8 0 0 1 12 6c6.1 0 9.5 6 9.5 6a15.7 15.7 0 0 1-3.1 3.7M6.2 6.2C3.8 7.8 2.5 12 2.5 12s3.4 6 9.5 6a9.8 9.8 0 0 0 3.4-.6"/>'
+                : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Zm9.5 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>';
         });
 
-        // Loading no submit
         document.getElementById('login-form').addEventListener('submit', function () {
-            const btn  = document.getElementById('submit-btn');
+            const btn = document.getElementById('submit-btn');
             const text = document.getElementById('btn-text');
             const icon = document.getElementById('btn-icon');
             btn.disabled = true;
-            btn.classList.add('opacity-75', 'cursor-not-allowed');
-            icon.innerHTML = `<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/>
-                              <path fill="currentColor" class="opacity-75"
-                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>`;
+            btn.classList.add('cursor-not-allowed', 'opacity-75');
+            icon.innerHTML = '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path fill="currentColor" class="opacity-75" d="M4 12a8 8 0 0 1 8-8V0C5.4 0 0 5.4 0 12h4Z"/>';
             icon.classList.add('animate-spin');
             text.textContent = 'Entrando...';
         });

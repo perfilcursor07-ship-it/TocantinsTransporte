@@ -82,6 +82,14 @@ Route::post('/motorista/pix/{token}/consultar', [DriverPixRegistrationController
     ->name('driver-pix.lookup');
 Route::get('/motorista/pix/{token}/enviado', [DriverPixRegistrationController::class, 'success'])->name('driver-pix.success');
 
+// Turismo: link de pagamento PIX enviado ao responsável pela viagem
+Route::get('/turismo/pagamento/{token}', [App\Http\Controllers\TourismPaymentController::class, 'show'])
+    ->middleware('throttle:30,1')
+    ->name('tourism.payment.show');
+Route::get('/turismo/pagamento/{token}/status', [App\Http\Controllers\TourismPaymentController::class, 'status'])
+    ->middleware('throttle:30,1')
+    ->name('tourism.payment.status');
+
 // Rotas de Autenticação
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
@@ -134,6 +142,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin.access'])->gr
         Route::get('/{trip}/editar', [App\Http\Controllers\Admin\TourismTripController::class, 'edit'])->name('edit');
         Route::put('/{trip}', [App\Http\Controllers\Admin\TourismTripController::class, 'update'])->name('update');
         Route::delete('/{trip}', [App\Http\Controllers\Admin\TourismTripController::class, 'destroy'])->name('destroy');
+        Route::post('/{trip}/pagamento', [App\Http\Controllers\Admin\TourismTripController::class, 'generatePaymentLink'])->name('payment.generate');
+        Route::post('/{trip}/pagamento/verificar', [App\Http\Controllers\Admin\TourismTripController::class, 'checkPayment'])->name('payment.check');
     });
     
     // Rotas do Chat (Atendimento Online)

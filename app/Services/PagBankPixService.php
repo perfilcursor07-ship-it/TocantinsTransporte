@@ -41,9 +41,10 @@ class PagBankPixService
      * @param string $description Descrição do item
      * @param string|null $referenceId ID único do pedido
      * @param array $customerData Dados do cliente (opcional)
+     * @param string|null $notificationUrl Webhook (opcional; padrão = webhook do portal)
      * @return array
      */
-    public function createPixPayment(float $amount, string $description, ?string $referenceId = null, array $customerData = []): array
+    public function createPixPayment(float $amount, string $description, ?string $referenceId = null, array $customerData = [], ?string $notificationUrl = null): array
     {
         try {
             $referenceId = $referenceId ?: 'WIFI_' . time() . '_' . strtoupper(Str::random(8));
@@ -99,7 +100,7 @@ class PagBankPixService
                     ]
                 ],
                 'notification_urls' => [
-                    config('app.url') . '/api/payment/webhook/pagbank'
+                    $notificationUrl ?: config('app.url') . '/api/payment/webhook/pagbank'
                 ]
             ];
 
