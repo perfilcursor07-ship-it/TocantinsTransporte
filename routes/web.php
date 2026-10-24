@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PortalController;
+use App\Http\Controllers\PartnerDocsController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\VoucherController;
 use App\Http\Controllers\MikrotikController;
@@ -23,6 +24,10 @@ use App\Http\Controllers\DriverPixRegistrationController;
 use App\Http\Controllers\Admin\DriverRequestController as AdminDriverRequestController;
 use App\Http\Controllers\Admin\DriverPixController as AdminDriverPixController;
 use App\Http\Controllers\ConnectivityProbeController;
+
+// 📄 Documentação pública de integração para parceiros do espaço de desconto.
+// Acessível por link direto, sem login e fora do buscador (noindex).
+Route::get('/parceiros/integracao', PartnerDocsController::class)->name('parceiros.docs');
 
 // Página principal do portal cativo
 Route::get('/', [PortalController::class, 'index'])->name('portal.index');
@@ -259,6 +264,19 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin.access'])->gr
         Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
         Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
         Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
+
+        // Parceiros do espaço de desconto (vídeo / iframe / API)
+        Route::prefix('parceiros')->name('sponsors.')->group(function () {
+            $c = \App\Http\Controllers\Admin\DiscountSponsorController::class;
+            Route::get('/', [$c, 'index'])->name('index');
+            Route::get('/novo', [$c, 'create'])->name('create');
+            Route::post('/', [$c, 'store'])->name('store');
+            Route::get('/{sponsor}/editar', [$c, 'edit'])->name('edit');
+            Route::put('/{sponsor}', [$c, 'update'])->name('update');
+            Route::post('/{sponsor}/ativar', [$c, 'activate'])->name('activate');
+            Route::post('/{sponsor}/desativar', [$c, 'deactivate'])->name('deactivate');
+            Route::delete('/{sponsor}', [$c, 'destroy'])->name('destroy');
+        });
         
         // Configurações de API
         Route::get('/api', [AdminController::class, 'apiSettings'])->name('api');

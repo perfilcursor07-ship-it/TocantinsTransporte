@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class CashCashLead extends Model
+class DiscountLead extends Model
 {
     use HasFactory;
 
@@ -13,7 +13,10 @@ class CashCashLead extends Model
     public const STATUS_CREATED = 'created';
     public const STATUS_FAILED = 'failed';
 
+    protected $table = 'discount_leads';
+
     protected $fillable = [
+        'sponsor_id',
         'user_id',
         'cpf',
         'phone',
@@ -51,6 +54,11 @@ class CashCashLead extends Model
      * Esconde o CPF em qualquer serialização que escape para o navegador.
      */
     protected $hidden = ['cpf'];
+
+    public function sponsor()
+    {
+        return $this->belongsTo(DiscountSponsor::class, 'sponsor_id');
+    }
 
     public function user()
     {

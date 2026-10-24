@@ -97,12 +97,12 @@ class PortalController extends Controller
         // Desconto da proposta Cash Cash já concedido para este aparelho?
         // Sobrevive a refresh da página e à volta do app do parceiro.
         $discountMac = $existingUser->mac_address ?? $request->input('mac');
-        $grantedDiscount = \App\Models\CashCashLead::activeDiscountFor($discountMac);
+        $grantedDiscount = \App\Models\DiscountLead::activeDiscountFor($discountMac);
 
         // Voltou do app do parceiro: o portal retoma a conferência no carregamento.
         $pendingDiscount = $grantedDiscount
             ? null
-            : \App\Models\CashCashLead::pendingReturnFor($discountMac);
+            : \App\Models\DiscountLead::pendingReturnFor($discountMac);
 
         return view('portal.index', [
             'client_info' => $clientInfo,

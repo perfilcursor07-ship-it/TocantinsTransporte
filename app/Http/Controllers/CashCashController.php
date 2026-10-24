@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\SettingsHelper;
 use App\Models\Bus;
-use App\Models\CashCashLead;
+use App\Models\DiscountLead;
 use App\Services\CashCashService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -76,7 +76,7 @@ class CashCashController extends Controller
         // accepted_at é AGORA: o parceiro recusa aceites com mais de 15 minutos.
         $acceptedAt = now();
 
-        $lead = CashCashLead::create([
+        $lead = DiscountLead::create([
             'user_id' => $validated['user_id'] ?? null,
             'cpf' => $cpf,
             'phone' => $validated['phone'] ?? null,
@@ -87,7 +87,7 @@ class CashCashController extends Controller
             'consent_latitude' => $location['latitude'],
             'consent_longitude' => $location['longitude'],
             'consent_location_source' => $location['source'],
-            'status' => CashCashLead::STATUS_PENDING,
+            'status' => DiscountLead::STATUS_PENDING,
         ]);
 
         $result = $this->cashCash->createHandoff([
@@ -101,7 +101,7 @@ class CashCashController extends Controller
 
         if (!$result['ok']) {
             $lead->update([
-                'status' => CashCashLead::STATUS_FAILED,
+                'status' => DiscountLead::STATUS_FAILED,
                 'http_status' => $result['http_status'],
                 'error_code' => $result['code'] ?? null,
             ]);
@@ -121,7 +121,7 @@ class CashCashController extends Controller
         }
 
         $lead->update([
-            'status' => CashCashLead::STATUS_CREATED,
+            'status' => DiscountLead::STATUS_CREATED,
             'handoff_id' => $result['handoff_id'],
             'http_status' => 201,
             'link_expires_at' => $result['expires_at'] ? \Illuminate\Support\Carbon::parse($result['expires_at']) : null,
@@ -147,9 +147,9 @@ class CashCashController extends Controller
             'lead_id' => 'required|integer',
         ]);
 
-        $lead = CashCashLead::find($validated['lead_id']);
+        $lead = DiscountLead::find($validated['lead_id']);
 
-        if (!$lead || $lead->status !== CashCashLead::STATUS_CREATED) {
+        if (!$lead || $lead->status !== DiscountLead::STATUS_CREATED) {
             return response()->json([
                 'success' => false,
                 'reason' => 'not_found',
@@ -223,7 +223,7 @@ class CashCashController extends Controller
 
         $validated = $request->validate(['lead_id' => 'required|integer']);
 
-        $lead = CashCashLead::find($validated['lead_id']);
+        $lead = DiscountLead::find($validated['lead_id']);
         if (!$lead || $lead->discount_granted_at) {
             return response()->json(['success' => false, 'reason' => 'not_found'], 404);
         }
