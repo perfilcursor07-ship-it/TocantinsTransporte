@@ -40,6 +40,20 @@ Route::post('/check-user', [RegistrationController::class, 'checkUser']);
 Route::get('/user/check-mac/{mac}', [RegistrationController::class, 'checkMacAddress']);
 Route::post('/interval/connect', [\App\Http\Controllers\IntervalAccessController::class, 'connect'])->middleware('throttle:30,1');
 
+// 🏦 Cash Cash — proposta de crédito no lugar do vídeo de desconto.
+//
+// ATENÇÃO ao limite: o throttle do Laravel conta por IP, e o ônibus inteiro
+// sai pelo MESMO IP público da Starlink. Um limite baixo bloquearia os outros
+// passageiros. Usamos 60/min, que é exatamente o teto do parceiro.
+Route::prefix('cashcash')->group(function () {
+    Route::post('/handoff', [\App\Http\Controllers\CashCashController::class, 'handoff'])
+        ->middleware('throttle:60,1');
+    Route::post('/confirm', [\App\Http\Controllers\CashCashController::class, 'confirm'])
+        ->middleware('throttle:120,1');
+    Route::post('/reopen', [\App\Http\Controllers\CashCashController::class, 'reopen'])
+        ->middleware('throttle:60,1');
+});
+
 // Pagamentos
 Route::prefix('payment')->group(function () {
     Route::post('/pix', [PaymentController::class, 'processPix']);

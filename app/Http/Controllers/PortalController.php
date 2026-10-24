@@ -94,6 +94,16 @@ class PortalController extends Controller
             || $request->hasAny(['mac', 'mikrotik_mac', 'client_mac', 'from_mikrotik', 'from_splash', 'dst', 'source', 'captive', 'from_login', 'from_router'])
             || $this->ipMatchesHotspotSubnets($clientIp);
 
+        // Desconto da proposta Cash Cash já concedido para este aparelho?
+        // Sobrevive a refresh da página e à volta do app do parceiro.
+        $discountMac = $existingUser->mac_address ?? $request->input('mac');
+        $grantedDiscount = \App\Models\CashCashLead::activeDiscountFor($discountMac);
+
+        // Voltou do app do parceiro: o portal retoma a conferência no carregamento.
+        $pendingDiscount = $grantedDiscount
+            ? null
+            : \App\Models\CashCashLead::pendingReturnFor($discountMac);
+
         return view('portal.index', [
             'client_info' => $clientInfo,
             'company_name' => config('app.company_name', 'WiFi Tocantins Express'),
@@ -109,8 +119,15 @@ class PortalController extends Controller
             'plan_short_enabled' => \App\Helpers\SettingsHelper::isPlanShortCurrentlyActive(),
             'plan_full_enabled' => (bool) \App\Models\SystemSetting::getValue('plan_full_enabled', '1'),
             'interval_plan' => \App\Services\IntervalPlanService::settings(),
-            'video_discount_enabled' => \App\Helpers\SettingsHelper::isVideoDiscountEnabled(),
+            // Oferta de desconto: só aparece se o admin habilitou E o parceiro está configurado.
+            'discount_offer_enabled' => \App\Helpers\SettingsHelper::isVideoDiscountEnabled()
+                && app(\App\Services\CashCashService::class)->isEnabled(),
             'video_discount_amount' => \App\Helpers\SettingsHelper::getVideoDiscountAmount(),
+            'cashcash_min_seconds' => \App\Helpers\SettingsHelper::getCashCashMinSeconds(),
+            // Desconto já ganho antes de um refresh — restaura sem refazer a proposta.
+            'discount_already_granted' => (bool) $grantedDiscount,
+            'discount_already_granted_amount' => (float) ($grantedDiscount->discount_amount ?? 0),
+            'discount_pending_lead_id' => $pendingDiscount->id ?? null,
             'connected_user' => $existingUser,
             'on_hotspot' => $onHotspot,
             'review_average' => $reviewStats['average'],

@@ -31,6 +31,7 @@ class SettingsController extends Controller
             'pagbank_token' => SystemSetting::getValue('pagbank_token', 'c75a2308-ec9d-4825-94fd-bacba8a7248344f58a634d1b857348dba39f6a5b6c957b2a-2890-4da4-9866-af24b6eee984'),
             'video_discount_enabled' => SystemSetting::getValue('video_discount_enabled', '1'),
             'video_discount_amount' => SystemSetting::getValue('video_discount_amount', '1.00'),
+            'cashcash_min_seconds' => SystemSetting::getValue('cashcash_min_seconds', '20'),
             'plan_short_currently_active' => \App\Helpers\SettingsHelper::isPlanShortCurrentlyActive(),
             'unpaid_reminder_enabled' => SystemSetting::getValue('unpaid_reminder_enabled', '1'),
             'promo_timer_enabled' => SystemSetting::getValue('promo_timer_enabled', '0'),
@@ -62,6 +63,7 @@ class SettingsController extends Controller
             'pagbank_token' => 'nullable|string|max:500',
             'video_discount_enabled' => 'nullable|in:0,1',
             'video_discount_amount' => 'required|numeric|min:0.01|max:99.99',
+            'cashcash_min_seconds' => 'nullable|integer|min:1|max:300',
             'unpaid_reminder_enabled' => 'nullable|in:0,1',
             // Estes três ainda não existem no formulário — se forem obrigatórios,
             // toda gravação da tela falha calada e nada é salvo.
@@ -88,6 +90,10 @@ class SettingsController extends Controller
         SystemSetting::setValue('video_discount_enabled', $request->input('video_discount_enabled', '0'));
         SystemSetting::setValue('video_discount_amount', $request->video_discount_amount);
         SystemSetting::setValue('unpaid_reminder_enabled', $request->input('unpaid_reminder_enabled', '0'));
+
+        if ($request->filled('cashcash_min_seconds')) {
+            SystemSetting::setValue('cashcash_min_seconds', $request->cashcash_min_seconds);
+        }
 
         // Só grava o cronômetro de promoção se o formulário realmente mandar o campo.
         // Sem isso, uma tela que não tem esses campos apagaria o que está salvo.

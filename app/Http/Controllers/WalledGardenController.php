@@ -22,6 +22,13 @@ class WalledGardenController extends Controller
             '*.tocantinstransportewifi.com.br',
             '10.5.50.1',
             
+            // ========== PARCEIRO CASH CASH (proposta de crédito) ==========
+            // Só o APP precisa ser liberado: a API (gw-*.cashcash.com.br) é
+            // chamada servidor-a-servidor e não passa pelo MikroTik.
+            'app-pwa-cash-dev.rafatella.workers.dev',  // homologação
+            'app.cashcash.com.br',                      // produção
+            '*.cashcash.com.br',
+
             // ========== GATEWAYS DE PAGAMENTO ==========
             '*.woovi.com',
             '*.openpix.com.br',

@@ -703,43 +703,39 @@
     document.getElementById('video-tutorial-modal').addEventListener('click', function(e) { if (e.target === this) closeVideoTutorial(); });
     </script>
 
-    <!-- Modal Escolha: Vídeo com Desconto OU Pagar Normal -->
-    @if($video_discount_enabled ?? false)
-    <div id="video-choice-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] hidden">
+    <!-- Oferta de desconto: proposta do parceiro OU pagar normal -->
+    @if($discount_offer_enabled ?? false)
+    <div id="discount-choice-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] hidden">
         <div class="flex items-center justify-center h-full p-4">
             <div class="bg-white rounded-2xl w-full max-w-sm animate-slide-up shadow-2xl overflow-hidden">
-                <!-- Header -->
                 <div class="bg-gradient-to-r from-emerald-600 to-emerald-700 px-5 py-4 text-center">
                     <p class="text-white font-extrabold text-base">Quer pagar menos?</p>
-                    <p class="text-emerald-100 text-xs mt-1">Assista um vídeo curto e ganhe desconto</p>
+                    <p class="text-emerald-100 text-xs mt-1">Veja uma proposta e ganhe desconto no plano</p>
                 </div>
 
                 <div class="p-5 space-y-3">
-                    <!-- Opção 1: Pular direto (preço normal) -->
-                    <button id="btn-skip-video" onclick="skipVideoDiscount()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl p-4 text-left transition-all active:scale-[0.98] border border-gray-200">
+                    <button id="btn-skip-discount" onclick="skipDiscountOffer()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl p-4 text-left transition-all active:scale-[0.98] border border-gray-200">
                         <div class="flex items-center gap-3">
                             <div class="w-11 h-11 bg-gray-200 rounded-xl flex items-center justify-center flex-shrink-0">
                                 <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
                             </div>
                             <div>
                                 <p class="font-bold text-sm text-gray-800">Pular e pagar normal</p>
-                                <p class="text-gray-500 text-xs mt-0.5">Sem vídeo, sem desconto</p>
-                                <p class="text-gray-600 text-xs font-bold mt-1" id="video-choice-normal-price"></p>
+                                <p class="text-gray-500 text-xs mt-0.5">Sem proposta, sem desconto</p>
+                                <p class="text-gray-600 text-xs font-bold mt-1" id="discount-choice-normal-price"></p>
                             </div>
                         </div>
                     </button>
 
-                    <!-- Opção 2: Assistir vídeo com desconto -->
-                    <button id="btn-watch-video" onclick="startVideoDiscount()" class="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-2xl p-4 text-left transition-all active:scale-[0.98] shadow-lg relative overflow-hidden">
+                    <button id="btn-see-offer" onclick="startDiscountOffer()" class="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-2xl p-4 text-left transition-all active:scale-[0.98] shadow-lg relative overflow-hidden">
                         <div class="absolute top-2 right-3 bg-yellow-400 text-yellow-900 text-[9px] font-extrabold px-2 py-0.5 rounded-full">ECONOMIZE</div>
                         <div class="flex items-center gap-3">
                             <div class="w-11 h-11 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                                <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a5 5 0 00-10 0v2M5 9h14l1 12H4L5 9z"/></svg>
                             </div>
-                            <div>
-                                <p class="font-extrabold text-sm">Assistir vídeo (42s)</p>
-                                <p class="text-purple-100 text-xs mt-0.5">Ganhe <strong>R${{ number_format($video_discount_amount ?? 1, 2, ',', '.') }} de desconto</strong> no plano</p>
-                                <p class="text-yellow-300 text-xs font-bold mt-1" id="video-choice-discounted-price"></p>
+                            <div class="pr-16">
+                                <p class="font-extrabold text-sm leading-snug">Tenha agora R${{ number_format($video_discount_amount ?? 1, 2, ',', '.') }} de desconto</p>
+                                <p class="text-purple-100 text-xs mt-0.5">Veja uma proposta de crédito no seu nome</p>
                             </div>
                         </div>
                     </button>
@@ -748,239 +744,379 @@
         </div>
     </div>
 
-    <!-- Modal Player de Vídeo -->
-    <div id="video-discount-modal" class="fixed inset-0 bg-black/95 z-[70] hidden flex-col items-center justify-center">
-        <div class="w-full max-w-lg mx-auto flex flex-col h-full sm:h-auto sm:max-h-[90vh]">
-            <!-- Header -->
-            <div class="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-green-dark to-green flex-shrink-0 sm:rounded-t-2xl">
-                <div class="flex items-center gap-2.5">
-                    <div class="w-8 h-8 bg-white/15 rounded-lg flex items-center justify-center backdrop-blur-sm">
-                        <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                    </div>
-                    <div>
-                        <p class="text-white font-bold text-sm">Assista até o final</p>
-                        <p class="text-green-100/70 text-[10px]">Desconto liberado ao terminar o vídeo</p>
-                    </div>
+    <!-- CPF e consentimento -->
+    <div id="discount-consent-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] hidden">
+        <div class="flex items-center justify-center h-full p-4">
+            <div class="bg-white rounded-2xl w-full max-w-sm animate-slide-up shadow-2xl overflow-hidden max-h-[94vh] overflow-y-auto">
+                <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-5 py-4 text-center">
+                    <p class="text-white font-extrabold text-base">Seus dados</p>
+                    <p class="text-purple-100 text-xs mt-1">Para montar a proposta no seu nome</p>
                 </div>
-                <button onclick="skipFromVideoPlayer()" class="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-[11px] font-bold px-4 py-2 rounded-full transition-colors animate-pulse backdrop-blur-sm">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
-                    Pular agora
-                </button>
-            </div>
 
-            <!-- Barra de progresso -->
-            <div class="bg-gray-900 px-4 py-2.5 flex items-center gap-3 flex-shrink-0">
-                <div class="flex-1 bg-gray-700/60 rounded-full h-3 overflow-hidden relative">
-                    <div id="video-discount-progress" class="bg-gradient-to-r from-green to-green-light h-full rounded-full transition-all duration-300 relative" style="width: 0%">
-                        <div class="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full shadow-md border-2 border-green"></div>
+                <div class="p-5">
+                    <label for="discount-phone" class="block text-xs font-bold text-gray-700 mb-1.5">Telefone</label>
+                    <input type="tel" id="discount-phone" maxlength="16" inputmode="numeric"
+                        class="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-purple-500 text-base font-medium">
+
+                    <label for="discount-cpf" class="block text-xs font-bold text-gray-700 mb-1.5 mt-4">CPF</label>
+                    <input type="tel" id="discount-cpf" placeholder="000.000.000-00" maxlength="14" inputmode="numeric"
+                        class="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-purple-500 text-base font-medium tracking-wide">
+
+                    <label class="flex items-start gap-2.5 mt-4 cursor-pointer">
+                        <input type="checkbox" id="discount-consent" class="mt-0.5 w-5 h-5 flex-shrink-0 accent-purple-600">
+                        <span class="text-[12px] text-gray-600 leading-snug">
+                            Autorizo o envio do meu CPF para a <strong>Cash Cash</strong> consultar uma proposta de crédito no meu nome.
+                        </span>
+                    </label>
+
+                    <div id="discount-consent-error" class="hidden mt-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs"></div>
+
+                    <button id="discount-consent-submit" onclick="submitDiscountConsent()"
+                        class="mt-4 w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold py-3.5 rounded-xl shadow-md text-sm transition-all active:scale-[0.98] disabled:opacity-60">
+                        Ver proposta e ganhar desconto
+                    </button>
+
+                    <button onclick="skipDiscountOffer()" class="mt-2 w-full text-[13px] font-semibold text-gray-500 hover:text-gray-700 py-2 underline">
+                        Pular e pagar normal
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aguardando o passageiro ver a proposta -->
+    <div id="discount-waiting-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] hidden">
+        <div class="flex items-center justify-center h-full p-4">
+            <div class="bg-white rounded-2xl w-full max-w-sm animate-slide-up shadow-2xl overflow-hidden">
+                <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-5 py-4 text-center">
+                    <p class="text-white font-extrabold text-base">Sua proposta está aberta</p>
+                    <p class="text-purple-100 text-xs mt-1">Numa aba nova, aqui do lado</p>
+                </div>
+
+                <div class="p-5">
+                    <div class="rounded-xl border-2 border-purple-200 bg-purple-50 p-4 text-center">
+                        <p class="text-[13px] font-bold text-purple-900">Falta para liberar o desconto</p>
+                        <p id="discount-waiting-timer" class="text-4xl font-black text-purple-700 leading-none my-2 tabular-nums">--</p>
+                        <div class="h-2.5 w-full rounded-full bg-gray-200 overflow-hidden">
+                            <div id="discount-waiting-bar" class="h-full bg-purple-500 rounded-full transition-all duration-500" style="width:0%"></div>
+                        </div>
                     </div>
-                </div>
-                <div class="flex items-center gap-1.5 bg-gray-800 rounded-lg px-2.5 py-1 min-w-[52px] justify-center">
-                    <svg class="w-3 h-3 text-green-light" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    <span id="video-discount-timer" class="text-white text-xs font-bold">0:42</span>
+
+                    <p id="discount-waiting-hint" class="text-[13px] text-gray-600 leading-snug mt-3 text-center">
+                        Volte para a aba da proposta e veja o que a Cash Cash preparou. O tempo só conta enquanto você está lá.
+                    </p>
+
+                    <div id="discount-waiting-error" class="hidden mt-3 bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 rounded-lg text-xs"></div>
+
+                    <button id="discount-reopen-btn" onclick="reopenDiscountOffer()"
+                        class="mt-4 w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl shadow-md text-sm transition-all active:scale-[0.98]">
+                        Abrir a proposta
+                    </button>
+
+                    <button onclick="skipDiscountOffer()" class="mt-2 w-full text-[13px] font-semibold text-gray-500 hover:text-gray-700 py-2 underline">
+                        Pular e pagar normal
+                    </button>
                 </div>
             </div>
-
-            <!-- Vídeo -->
-            <div id="video-player-container" class="flex-1 flex items-center justify-center bg-black sm:rounded-b-2xl overflow-hidden">
-                <video id="discount-video" class="w-full h-full object-contain" playsinline preload="none" oncontextmenu="return false;">
-                    <source src="{{ asset('videos/video-tocantins.mp4') }}" type="video/mp4">
-                </video>
-            </div>
-
         </div>
     </div>
 
     <script>
     (function() {
-        const VIDEO_DISCOUNT_AMOUNT = {{ $video_discount_amount ?? 1 }};
-        let videoDiscountApplied = false;
-        let videoWatchedFully = false;
-        let pendingConnectAction = null; // guarda a callback do handleConnectClick original
+        const DISCOUNT_AMOUNT = {{ $video_discount_amount ?? 1 }};
+        const MIN_SECONDS = {{ $cashcash_min_seconds ?? 20 }};
 
-        // Flags globais
-        window.VIDEO_DISCOUNT_APPLIED = false;
-        window.VIDEO_DISCOUNT_AMOUNT = 0;
+        let decided = false;              // já pulou ou já ganhou o desconto
+        let pendingConnectAction = null;  // callback original do fluxo de pagamento
+        let lead = null;                  // { lead_id } da proposta em andamento
+        let confirming = false;
 
-        /**
-         * Intercepta o clique em "ACESSAR INTERNET AGORA"
-         * Se desconto por vídeo está ativo e ainda não foi usado, mostra modal de escolha.
-         * Senão, segue o fluxo normal.
-         */
-        window.VIDEO_DISCOUNT_INTERCEPT = function(originalCallback) {
-            if (videoDiscountApplied) {
-                originalCallback();
-                return;
-            }
-            pendingConnectAction = originalCallback;
+        window.DISCOUNT_APPLIED = false;
+        window.DISCOUNT_AMOUNT = 0;
 
-            // Esconder loading overlay antes de mostrar o modal
-            var loadingOverlay = document.getElementById('loading-overlay');
-            if (loadingOverlay) loadingOverlay.classList.add('hidden');
-
-            const currentPrice = window.WIFI_PRICE || 6.99;
-            const discountedPrice = Math.max(0.01, currentPrice - VIDEO_DISCOUNT_AMOUNT);
-            const normalEl = document.getElementById('video-choice-normal-price');
-            const discountEl = document.getElementById('video-choice-discounted-price');
-            if (normalEl) normalEl.textContent = 'Pagar R$' + currentPrice.toFixed(2).replace('.', ',');
-            if (discountEl) discountEl.textContent = 'Pagar apenas R$' + discountedPrice.toFixed(2).replace('.', ',');
-
-            const modal = document.getElementById('video-choice-modal');
-            modal.classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-        };
-
-        /** Usuário escolheu assistir o vídeo */
-        window.startVideoDiscount = function() {
-            // Fechar modal de escolha
-            document.getElementById('video-choice-modal').classList.add('hidden');
-
-            // Abrir player de vídeo
-            const modal = document.getElementById('video-discount-modal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-
-            const video = document.getElementById('discount-video');
-            if (video) {
-                // Forçar carregamento e play
-                video.load();
-                video.play().catch(function() {
-                    // Autoplay bloqueado — mostrar botão de play
-                    video.controls = true;
-                });
-            }
-        };
-
-        /** Usuário escolheu pular — preço normal, segue fluxo */
-        window.skipVideoDiscount = function() {
-            videoDiscountApplied = true; // marca como "já decidiu" para não perguntar de novo
-            document.getElementById('video-choice-modal').classList.add('hidden');
+        function el(id) { return document.getElementById(id); }
+        function show(id) { el(id)?.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
+        function hide(id) { el(id)?.classList.add('hidden'); }
+        function hideAll() {
+            ['discount-choice-modal', 'discount-consent-modal', 'discount-waiting-modal'].forEach(hide);
             document.body.style.overflow = 'auto';
+        }
 
+        /** Segue o fluxo de pagamento original, intocado. */
+        function continueToPayment() {
+            hideAll();
             if (pendingConnectAction) {
-                pendingConnectAction();
+                const go = pendingConnectAction;
                 pendingConnectAction = null;
-            }
-        };
-
-        /** Fecha o player de vídeo (usuário fechou antes de terminar) */
-        window.closeVideoDiscount = function() {
-            var modal = document.getElementById('video-discount-modal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-            document.body.style.overflow = 'auto';
-
-            var video = document.getElementById('discount-video');
-            if (video) { video.pause(); video.controls = false; video.currentTime = 0; }
-            var progressBar = document.getElementById('video-discount-progress');
-            var timerEl = document.getElementById('video-discount-timer');
-            if (progressBar) progressBar.style.width = '0%';
-            if (timerEl) timerEl.textContent = '0:42';
-
-            // Voltar ao modal de escolha
-            document.getElementById('video-choice-modal').classList.remove('hidden');
-        };
-
-        /** Usuário clicou "Não quero assistir" dentro do player — pula direto pro pagamento */
-        window.skipFromVideoPlayer = function() {
-            videoDiscountApplied = true; // não perguntar de novo
-            var modal = document.getElementById('video-discount-modal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-            document.body.style.overflow = 'auto';
-
-            var video = document.getElementById('discount-video');
-            if (video) { video.pause(); video.controls = false; }
-
-            if (pendingConnectAction) {
-                pendingConnectAction();
-                pendingConnectAction = null;
-            }
-        };
-
-        function applyVideoDiscount() {
-            videoDiscountApplied = true;
-            window.VIDEO_DISCOUNT_APPLIED = true;
-            window.VIDEO_DISCOUNT_AMOUNT = VIDEO_DISCOUNT_AMOUNT;
-
-            // Atualizar preços nos cards de plano
-            document.querySelectorAll('[data-plan-option]').forEach(function(card) {
-                if (card.dataset.planType === 'interval') return;
-                var originalPrice = Number(card.dataset.planOriginalPrice || card.dataset.planPrice);
-                if (!card.dataset.planOriginalPrice) {
-                    card.dataset.planOriginalPrice = card.dataset.planPrice;
-                }
-                var newPrice = Math.max(0.01, originalPrice - VIDEO_DISCOUNT_AMOUNT);
-                card.dataset.planPrice = String(newPrice);
-
-                var priceDisplay = card.querySelector('[data-plan-price-display]');
-                if (priceDisplay) {
-                    priceDisplay.textContent = 'R$' + newPrice.toFixed(2).replace('.', ',');
-                }
-            });
-
-            // Re-selecionar plano atual para atualizar window.WIFI_PRICE
-            var selectedCard = document.querySelector('.plan-card-selected');
-            if (selectedCard && typeof selectWifiPlan === 'function') {
-                selectWifiPlan(selectedCard);
+                go();
             }
         }
 
-        // Setup do player de vídeo
+        /**
+         * Intercepta o clique em pagar. Se a oferta ainda não foi decidida,
+         * mostra a escolha; senão segue direto.
+         */
+        window.DISCOUNT_OFFER_INTERCEPT = function(originalCallback) {
+            if (decided) { originalCallback(); return; }
+            pendingConnectAction = originalCallback;
+
+            el('loading-overlay')?.classList.add('hidden');
+
+            const price = window.WIFI_PRICE || 6.99;
+            const normalEl = el('discount-choice-normal-price');
+            if (normalEl) normalEl.textContent = 'Pagar R$' + price.toFixed(2).replace('.', ',');
+
+            show('discount-choice-modal');
+        };
+
+        /** Pulou: preço normal, fluxo normal. */
+        window.skipDiscountOffer = function() {
+            decided = true;
+            continueToPayment();
+        };
+
+        /** Escolheu ver a proposta: pede CPF e consentimento. */
+        window.startDiscountOffer = function() {
+            hide('discount-choice-modal');
+
+            const phoneField = el('discount-phone');
+            if (phoneField && !phoneField.value) {
+                phoneField.value = el('user_phone')?.value || '';
+            }
+            el('discount-consent-error')?.classList.add('hidden');
+
+            show('discount-consent-modal');
+        };
+
+        /** Envia CPF + consentimento e abre a proposta numa aba nova. */
+        window.submitDiscountConsent = async function() {
+            const errorBox = el('discount-consent-error');
+            const button = el('discount-consent-submit');
+            const cpf = (el('discount-cpf')?.value || '').replace(/\D/g, '');
+            const phone = (el('discount-phone')?.value || '').replace(/\D/g, '');
+
+            function fail(message) {
+                if (errorBox) { errorBox.textContent = message; errorBox.classList.remove('hidden'); }
+                if (button) { button.disabled = false; button.textContent = 'Ver proposta e ganhar desconto'; }
+            }
+
+            if (phone.length < 10 || phone.length > 11) return fail('Digite o telefone com DDD.');
+            if (cpf.length !== 11) return fail('Digite os 11 números do CPF.');
+            if (!el('discount-consent')?.checked) return fail('Marque a autorização para continuar.');
+
+            if (button) { button.disabled = true; button.textContent = 'Carregando proposta...'; }
+            errorBox?.classList.add('hidden');
+
+            // Cadastra o telefone ANTES de sair do portal: o passageiro vai para
+            // o app do parceiro e volta com a página recarregada.
+            try {
+                if (typeof window.DISCOUNT_REGISTER_PHONE === 'function') {
+                    await window.DISCOUNT_REGISTER_PHONE(phone);
+                }
+            } catch (e) {
+                return fail(e?.message === 'sem-mac'
+                    ? 'Não identificamos seu aparelho. Reconecte no WiFi do ônibus e tente de novo.'
+                    : 'Não conseguimos salvar seu telefone. Tente de novo.');
+            }
+
+            let data;
+            try {
+                const response = await fetch('/api/cashcash/handoff', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    },
+                    body: JSON.stringify({
+                        cpf: cpf,
+                        phone: phone || null,
+                        mac_address: window.wifiPortal?.deviceMac || null,
+                        user_id: window.wifiPortal?.currentUserId || null,
+                    }),
+                });
+                data = await response.json();
+            } catch (e) {
+                return fail('Sem conexão para carregar a proposta. Siga com o pagamento normal.');
+            }
+
+            if (!data || !data.success) {
+                if (data?.fallback_url) {           // plano B do guia: só em 502/503
+                    window.location.replace(data.fallback_url);
+                    return;
+                }
+                return fail(data?.message || 'Não conseguimos carregar a proposta agora.');
+            }
+
+            // Mesma aba, como o guia pede. O portal recarrega quando ele voltar
+            // e retoma pelo lead pendente — por isso nada precisa ficar na memória.
+            window.location.replace(data.url);      // a url nunca é logada
+        };
+
+        /**
+         * Reabre a proposta. O link do parceiro é de uso único e expira em 5 min,
+         * então o servidor gera um handoff novo.
+         */
+        window.reopenDiscountOffer = async function() {
+            if (!lead) return;
+            const botao = el('discount-reopen-btn');
+            const box = el('discount-waiting-error');
+            if (botao) { botao.disabled = true; botao.textContent = 'Abrindo...'; }
+
+            try {
+                const response = await fetch('/api/cashcash/reopen', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    },
+                    body: JSON.stringify({ lead_id: lead.lead_id }),
+                });
+                const data = await response.json();
+
+                if (data?.success && data.url) {
+                    window.location.replace(data.url);
+                    return;
+                }
+                if (box) {
+                    box.textContent = data?.message || 'Não conseguimos reabrir a proposta.';
+                    box.classList.remove('hidden');
+                }
+            } catch (e) {
+                if (box) {
+                    box.textContent = 'Sem conexão para reabrir a proposta.';
+                    box.classList.remove('hidden');
+                }
+            }
+
+            if (botao) { botao.disabled = false; botao.textContent = 'Abrir a proposta'; }
+        };
+
+        function renderWaiting(restam) {
+            const left = Math.max(0, restam == null ? MIN_SECONDS : restam);
+            const timer = el('discount-waiting-timer');
+            const bar = el('discount-waiting-bar');
+            if (timer) timer.textContent = left + 's';
+            if (bar) bar.style.width = ((MIN_SECONDS - left) / MIN_SECONDS * 100) + '%';
+        }
+
+        /**
+         * Pergunta ao servidor se o tempo na proposta já dá direito ao desconto.
+         * Quem mede é o servidor, entre a abertura do link e a volta ao portal.
+         */
+        async function tryConfirm() {
+            if (!lead || confirming || decided) return null;
+            confirming = true;
+
+            let data;
+            try {
+                const response = await fetch('/api/cashcash/confirm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    },
+                    body: JSON.stringify({ lead_id: lead.lead_id }),
+                });
+                data = await response.json();
+            } catch (e) {
+                confirming = false;
+                return null;
+            }
+
+            confirming = false;
+            return data;
+        }
+
+        /**
+         * Aplica o desconto nos cards de plano.
+         * Mesma mecânica que o vídeo usava — nada de cobrança muda aqui.
+         */
+        function applyDiscount(amount) {
+            window.DISCOUNT_APPLIED = true;
+            window.DISCOUNT_AMOUNT = amount;
+
+            document.querySelectorAll('[data-plan-option]').forEach(function(card) {
+                if (card.dataset.planType === 'interval') return;
+                const original = Number(card.dataset.planOriginalPrice || card.dataset.planPrice);
+                if (!card.dataset.planOriginalPrice) card.dataset.planOriginalPrice = card.dataset.planPrice;
+
+                const novo = Math.max(0.01, original - amount);
+                card.dataset.planPrice = String(novo);
+
+                const display = card.querySelector('[data-plan-price-display]');
+                if (display) display.textContent = 'R$' + novo.toFixed(2).replace('.', ',');
+            });
+
+            const selected = document.querySelector('.plan-card-selected');
+            if (selected && typeof selectWifiPlan === 'function') selectWifiPlan(selected);
+        }
+
+        function discountToast(amount) {
+            const aviso = document.createElement('div');
+            aviso.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-[200] bg-emerald-600 text-white font-bold text-sm px-5 py-3 rounded-xl shadow-2xl';
+            aviso.textContent = 'Desconto de R$' + amount.toFixed(2).replace('.', ',') + ' liberado!';
+            document.body.appendChild(aviso);
+            setTimeout(function() { aviso.remove(); }, 5000);
+        }
+
+        // Máscaras
         document.addEventListener('DOMContentLoaded', function() {
-            var video = document.getElementById('discount-video');
-            if (!video) return;
+            const cpfField = el('discount-cpf');
+            if (cpfField) {
+                cpfField.addEventListener('input', function() {
+                    let v = this.value.replace(/\D/g, '').slice(0, 11);
+                    v = v.replace(/(\d{3})(\d)/, '$1.$2')
+                         .replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+                         .replace(/\.(\d{3})(\d{1,2})$/, '.$1-$2');
+                    this.value = v;
+                });
+            }
 
-            var progressBar = document.getElementById('video-discount-progress');
-            var timerEl = document.getElementById('video-discount-timer');
-
-            // Impedir seek (pular)
-            var lastValidTime = 0;
-            video.addEventListener('seeking', function() {
-                if (video.currentTime > lastValidTime + 1) {
-                    video.currentTime = lastValidTime;
-                }
-            });
-
-            video.addEventListener('timeupdate', function() {
-                if (video.currentTime > lastValidTime) {
-                    lastValidTime = video.currentTime;
-                }
-                var duration = video.duration || 42;
-                var progress = Math.min((video.currentTime / duration) * 100, 100);
-                if (progressBar) progressBar.style.width = progress + '%';
-
-                var remaining = Math.max(0, Math.ceil(duration - video.currentTime));
-                var mins = Math.floor(remaining / 60);
-                var secs = remaining % 60;
-                if (timerEl) timerEl.textContent = mins + ':' + (secs < 10 ? '0' : '') + secs;
-            });
-
-            video.addEventListener('ended', function() {
-                videoWatchedFully = true;
-                lastValidTime = 0;
-                if (progressBar) progressBar.style.width = '100%';
-                if (timerEl) timerEl.textContent = '0:00';
-
-                // Aplicar desconto e seguir direto pro pagamento
-                applyVideoDiscount();
-
-                // Fechar modal do vídeo e seguir o fluxo
-                var modal = document.getElementById('video-discount-modal');
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                document.body.style.overflow = 'auto';
-                var vid = document.getElementById('discount-video');
-                if (vid) { vid.pause(); vid.controls = false; }
-
-                if (pendingConnectAction) {
-                    pendingConnectAction();
-                    pendingConnectAction = null;
-                }
-            });
-
-            video.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+            const phoneField = el('discount-phone');
+            if (phoneField) {
+                phoneField.addEventListener('input', function() {
+                    let v = this.value.replace(/\D/g, '').slice(0, 11);
+                    if (v.length > 10) v = v.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+                    else if (v.length > 6) v = v.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3');
+                    else if (v.length > 2) v = v.replace(/(\d{2})(\d{0,5})/, '($1) $2');
+                    this.value = v;
+                });
+            }
         });
+
+        // Desconto já concedido (refresh da página ou volta do app): restaura.
+        @if($discount_already_granted ?? false)
+        document.addEventListener('DOMContentLoaded', function() {
+            applyDiscount({{ $discount_already_granted_amount ?? 0 }});
+            decided = true;
+        });
+        @endif
+
+        // Voltou do app do parceiro: confere no servidor quanto tempo ficou lá.
+        @if($discount_pending_lead_id ?? null)
+        document.addEventListener('DOMContentLoaded', async function() {
+            lead = { lead_id: {{ $discount_pending_lead_id }} };
+
+            const data = await tryConfirm();
+            if (!data) return;
+
+            if (data.granted) {
+                applyDiscount(Number(data.discount_amount) || DISCOUNT_AMOUNT);
+                decided = true;
+                discountToast(Number(data.discount_amount) || DISCOUNT_AMOUNT);
+                return;
+            }
+
+            // Voltou cedo demais: oferece reabrir a proposta.
+            renderWaiting(data.remaining_seconds);
+            const hint = el('discount-waiting-hint');
+            if (hint && data.message) hint.textContent = data.message;
+            show('discount-waiting-modal');
+        });
+        @endif
     })();
     </script>
     @endif
@@ -1312,40 +1448,78 @@
     <script src="{{ asset('js/interval-plan.js') }}?v={{ filemtime(public_path('js/interval-plan.js')) }}"></script>
     <script src="{{ asset('js/portal.js') }}?v={{ filemtime(public_path('js/portal.js')) }}"></script>
 
-    @if($video_discount_enabled ?? false)
+    @if($discount_offer_enabled ?? false)
     <script>
     /**
-     * Intercepta processPixPayment e processPixPaymentFast do WiFiPortal
-     * para mostrar modal de escolha (vídeo com desconto OU preço normal)
-     * DEPOIS do cadastro de telefone, antes de gerar o QR Code PIX.
+     * A oferta de desconto vem ANTES de pedir o telefone.
+     *
+     *  - Pular e pagar normal  -> cadastro de sempre, só telefone
+     *  - Tenha R$X de desconto -> telefone + CPF numa tela só
+     *
+     * Por isso interceptamos showRegistrationModal (usuário novo) e
+     * processPixPayment (usuário já cadastrado), que são os dois pontos
+     * logo depois de o MAC ser resolvido.
      */
     document.addEventListener('DOMContentLoaded', function() {
         var checkPortal = setInterval(function() {
             if (window.wifiPortal) {
                 clearInterval(checkPortal);
 
-                // Guardar métodos originais
-                var originalProcessPix = window.wifiPortal.processPixPayment.bind(window.wifiPortal);
-                var originalProcessPixFast = window.wifiPortal.processPixPaymentFast.bind(window.wifiPortal);
+                var portal = window.wifiPortal;
+                var originalShowRegistration = portal.showRegistrationModal.bind(portal);
+                var originalProcessPix = portal.processPixPayment.bind(portal);
+                var originalProcessPixFast = portal.processPixPaymentFast.bind(portal);
 
-                // Interceptar processPixPayment (usuário já cadastrado)
-                window.wifiPortal.processPixPayment = function() {
-                    if (window.WIFI_SELECTED_PLAN?.plan_type === 'interval') return originalProcessPix();
-                    if (typeof window.VIDEO_DISCOUNT_INTERCEPT === 'function') {
-                        window.VIDEO_DISCOUNT_INTERCEPT(originalProcessPix);
-                    } else {
-                        originalProcessPix();
-                    }
-                };
+                function comOferta(original) {
+                    return function() {
+                        if (window.WIFI_SELECTED_PLAN?.plan_type === 'interval') return original();
+                        if (typeof window.DISCOUNT_OFFER_INTERCEPT === 'function') {
+                            window.DISCOUNT_OFFER_INTERCEPT(original);
+                        } else {
+                            original();
+                        }
+                    };
+                }
 
-                // Interceptar processPixPaymentFast (após cadastro de telefone)
-                window.wifiPortal.processPixPaymentFast = function() {
-                    if (window.WIFI_SELECTED_PLAN?.plan_type === 'interval') return originalProcessPixFast();
-                    if (typeof window.VIDEO_DISCOUNT_INTERCEPT === 'function') {
-                        window.VIDEO_DISCOUNT_INTERCEPT(originalProcessPixFast);
-                    } else {
-                        originalProcessPixFast();
+                // Usuário novo: a oferta aparece no lugar do cadastro de telefone.
+                portal.showRegistrationModal = comOferta(originalShowRegistration);
+
+                // Usuário já cadastrado: a oferta aparece antes de gerar o PIX.
+                portal.processPixPayment = comOferta(originalProcessPix);
+                portal.processPixPaymentFast = comOferta(originalProcessPixFast);
+
+                // Para o fluxo com desconto: cadastra o telefone antes de sair
+                // do portal, para que na volta ele já esteja registrado.
+                window.DISCOUNT_REGISTER_PHONE = async function(phone) {
+                    if (portal.currentUserId) return portal.currentUserId;
+
+                    if (!portal.deviceMac || portal.deviceMac === 'DETECTING...') {
+                        await portal.ensureRealIdentifiers();
                     }
+                    if (!portal.deviceMac || !portal.isValidMacAddress(portal.deviceMac)) {
+                        throw new Error('sem-mac');
+                    }
+
+                    var resp = await fetch('/api/register-for-payment', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': portal.getCSRFToken(),
+                        },
+                        body: JSON.stringify({
+                            phone: phone,
+                            email: '',
+                            user_id: portal.currentUserId,
+                            mac_address: portal.deviceMac,
+                            ip_address: portal.deviceIp,
+                            whatsapp_payment_opt_in: document.getElementById('whatsapp-payment-opt-in')?.checked ? 1 : 0,
+                        }),
+                    });
+
+                    var result = await resp.json();
+                    if (!result.success) throw new Error(result.message || 'registro');
+                    portal.currentUserId = result.user_id;
+                    return result.user_id;
                 };
             }
         }, 100);

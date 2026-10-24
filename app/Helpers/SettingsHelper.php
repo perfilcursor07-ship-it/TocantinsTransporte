@@ -172,6 +172,19 @@ class SettingsHelper
     }
 
     /**
+     * Tempo mínimo (em segundos) que o passageiro precisa ficar na proposta
+     * do Cash Cash para ganhar o desconto — equivale aos 42s do vídeo antigo.
+     */
+    public static function getCashCashMinSeconds(): int
+    {
+        $value = (int) Cache::remember('cashcash_min_seconds', 3600, function () {
+            return SystemSetting::getValue('cashcash_min_seconds', '20');
+        });
+
+        return max(1, min(300, $value));
+    }
+
+    /**
      * Verificar se o agendamento automático do plano por hora está habilitado
      */
     public static function isPlanShortScheduleEnabled(): bool
@@ -256,5 +269,6 @@ class SettingsHelper
         Cache::forget('pagbank_token');
         Cache::forget('video_discount_enabled');
         Cache::forget('video_discount_amount');
+        Cache::forget('cashcash_min_seconds');
     }
 }

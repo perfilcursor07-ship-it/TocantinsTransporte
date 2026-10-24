@@ -234,18 +234,18 @@
                         <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                         </svg>
-                        Desconto por Vídeo
+                        Desconto por Proposta (Cash Cash)
                     </h2>
                 </div>
                 <div class="p-6">
-                    <p class="text-sm text-gray-600 mb-4">O passageiro pode assistir um vídeo promocional (42 segundos) antes do pagamento para ganhar desconto.</p>
+                    <p class="text-sm text-gray-600 mb-4">Antes de pagar, o passageiro pode informar o CPF e ver uma proposta de crédito do parceiro Cash Cash. Se ficar o tempo mínimo na proposta, ganha o desconto no plano.</p>
                     
                     <div class="flex items-center justify-between mb-5 p-4 bg-purple-50 rounded-xl border border-purple-200">
                         <div>
                             <label for="video_discount_toggle" class="block text-sm font-bold text-gray-700">
-                                🎬 Habilitar desconto por vídeo
+                                🎬 Habilitar desconto por proposta
                             </label>
-                            <p class="text-xs text-gray-500 mt-1">Quando ativado, o usuário pode assistir o vídeo completo para ganhar desconto</p>
+                            <p class="text-xs text-gray-500 mt-1">Quando ativado, o passageiro pode ver a proposta do parceiro para ganhar desconto</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="hidden" name="video_discount_enabled" value="0">
@@ -268,8 +268,25 @@
                                     class="w-full pl-10 pr-3 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-lg font-bold"
                                     required>
                             </div>
-                            <p class="text-xs text-gray-500 mt-2">Valor que será descontado do preço do plano ao assistir o vídeo completo</p>
+                            <p class="text-xs text-gray-500 mt-2">Valor descontado do plano quando o passageiro vê a proposta</p>
                             @error('video_discount_amount')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
+                            <label for="cashcash_min_seconds" class="block text-sm font-bold text-gray-700 mb-2">
+                                ⏱️ Tempo mínimo na proposta
+                            </label>
+                            <div class="relative">
+                                <input
+                                    type="number" name="cashcash_min_seconds" id="cashcash_min_seconds" min="1" max="300"
+                                    value="{{ old('cashcash_min_seconds', $settings['cashcash_min_seconds'] ?? 20) }}"
+                                    class="w-full pl-4 pr-14 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-lg font-bold"
+                                    required>
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-bold text-sm">seg</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-2">Quanto tempo o passageiro precisa ficar na proposta para liberar o desconto. Voltou antes disso, paga o preço normal.</p>
+                            @error('cashcash_min_seconds')
                                 <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
