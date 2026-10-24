@@ -128,6 +128,10 @@ class PortalController extends Controller
             'discount_already_granted' => (bool) $grantedDiscount,
             'discount_already_granted_amount' => (float) ($grantedDiscount->discount_amount ?? 0),
             'discount_pending_lead_id' => $pendingDiscount->id ?? null,
+            // Texto de autorização montado do cadastro do parceiro: o passageiro
+            // precisa ver QUEM recebe e QUAIS dados saem, senão o consentimento
+            // não cobre o envio.
+            'discount_consent_text' => \App\Models\DiscountSponsor::active()?->consentText(),
             'connected_user' => $existingUser,
             'on_hotspot' => $onHotspot,
             'review_average' => $reviewStats['average'],

@@ -765,7 +765,7 @@
                     <label class="flex items-start gap-2.5 mt-4 cursor-pointer">
                         <input type="checkbox" id="discount-consent" class="mt-0.5 w-5 h-5 flex-shrink-0 accent-purple-600">
                         <span class="text-[12px] text-gray-600 leading-snug">
-                            Autorizo o envio do meu CPF para a <strong>Cash Cash</strong> consultar uma proposta de crédito no meu nome.
+                            {{ $discount_consent_text ?? 'Autorizo o envio dos meus dados para o parceiro.' }}
                         </span>
                     </label>
 

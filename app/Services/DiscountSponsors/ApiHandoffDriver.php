@@ -79,7 +79,11 @@ class ApiHandoffDriver extends BaseDriver
             'status' => \App\Models\DiscountLead::STATUS_PENDING,
         ]);
 
-        $resultado = $this->criarSessao($consent, $cpf);
+        $telefone = $this->sponsor->shares_phone && !empty($input['phone'])
+            ? preg_replace('/\D/', '', $input['phone'])
+            : null;
+
+        $resultado = $this->criarSessao($consent, $cpf, $telefone);
 
         if (!$resultado['ok']) {
             $lead->update([
@@ -112,18 +116,26 @@ class ApiHandoffDriver extends BaseDriver
 
     // ---------- HTTP ----------
 
-    private function criarSessao(array $consent, ?string $cpf, bool $repetiu = false): array
+    private function criarSessao(array $consent, ?string $cpf, ?string $telefone = null, bool $repetiu = false): array
     {
         $token = $this->token($repetiu);
         if (!$token) {
             return ['ok' => false, 'http_status' => 0, 'code' => 'TOKEN_UNAVAILABLE'];
         }
 
-        $payload = $this->sponsor->cfg('style') === 'cashcash'
-            ? ['cpf' => $cpf, 'consent' => $consent]
-            : ['external_id' => (string) \Illuminate\Support\Str::uuid(),
-               'document' => $cpf,
-               'consent' => $consent];
+        if ($this->sponsor->cfg('style') === 'cashcash') {
+            // Esse parceiro recusa campos fora do contrato dele (400), telefone incluso.
+            $payload = ['cpf' => $cpf, 'consent' => $consent];
+        } else {
+            $payload = [
+                'external_id' => (string) \Illuminate\Support\Str::uuid(),
+                'document' => $cpf,
+                'consent' => $consent,
+            ];
+            if ($telefone) {
+                $payload['phone'] = $telefone;
+            }
+        }
 
         try {
             $resp = Http::withToken($token)
@@ -139,7 +151,7 @@ class ApiHandoffDriver extends BaseDriver
 
         if ($resp->status() === 401 && !$repetiu) {
             Cache::forget($this->chaveToken());
-            return $this->criarSessao($consent, $cpf, true);
+            return $this->criarSessao($consent, $cpf, $telefone, true);
         }
 
         if (in_array($resp->status(), [200, 201], true)) {

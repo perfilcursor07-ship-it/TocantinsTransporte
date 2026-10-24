@@ -137,6 +137,7 @@ Content-Type: application/json
 {
   "external_id": "uuid-gerado-por-nos",
   "document": "52998224725",
+  "phone": "63981013050",
   "consent": {
     "accepted_at": "2026-10-24T18:00:00.000Z",
     "ip_address": "179.86.85.18",
@@ -155,8 +156,10 @@ Resposta `201`:
 }
 ```
 
-- `document` só é enviado se você precisar de CPF — e só depois do passageiro
-  autorizar explicitamente no nosso portal.
+- `document` (CPF, 11 dígitos) e `phone` (DDD + número, só dígitos) são
+  enviados conforme o que a sua integração precisa, e só depois do passageiro
+  autorizar explicitamente no nosso portal. Se você só precisa de um dos dois,
+  configuramos para enviar só aquele.
 - `url` é para onde mandamos o passageiro. **Ela deve já identificar a sessão**,
   para ele não ter que digitar o CPF de novo. Se a url abrir num formulário em
   branco, a integração perde o sentido.
@@ -201,13 +204,49 @@ se resolvem por configuração.
   regulador é responsabilidade sua.
 - O passageiro pode recusar a qualquer momento e seguir para o pagamento.
 
-**Dados**
+**Dados do passageiro**
 
-- Só coletamos CPF quando o parceiro exige e o passageiro autoriza na tela.
-- Guardamos a evidência do consentimento: data/hora, IP, user agent.
-- Não repassamos telefone, nome ou e-mail. Só o documento, quando autorizado.
-- Credenciais ficam em variável de ambiente no nosso servidor, nunca em código
-  ou banco. Token e links de sessão nunca vão para log.
+Repassamos **CPF e telefone** ao parceiro, quando a integração dele precisa
+desses dados. São os dois únicos campos pessoais que saem daqui — não enviamos
+nome, e-mail, localização de embarque, histórico de viagens nem dados de pagamento.
+
+O que define quais campos saem é o seu cadastro no nosso painel. Quem só precisa
+de telefone não recebe CPF, e vice-versa.
+
+**A base legal é o consentimento do titular (LGPD, art. 7º, I).** Antes de
+qualquer envio, o passageiro marca no portal uma autorização que diz, com todas
+as letras, **quem** recebe os dados, **quais** dados são e **para quê**:
+
+> Autorizo o WiFi Tocantins a enviar meu CPF e telefone para a [Parceiro],
+> com a finalidade de [finalidade declarada].
+
+Sem essa marcação, nada é enviado — nem o lead é criado. O nome do parceiro e a
+finalidade vêm do seu cadastro, então **nos mande a razão social e a finalidade
+exatamente como devem aparecer** nesse texto.
+
+Guardamos a evidência de cada consentimento: data e hora, IP e user agent do
+aparelho, junto do identificador da sessão criada na sua API. É o que comprova
+o envio, para os dois lados, se alguém questionar.
+
+**Sua responsabilidade.** A partir do momento em que os dados chegam a você,
+sua empresa é controladora independente deles. Isso significa:
+
+- Usar os dados **apenas para a finalidade declarada** na autorização. Qualquer
+  outro uso precisa de nova base legal, obtida por você, com o titular.
+- **Não revender, não compartilhar com terceiros** e não enriquecer o dado com
+  outras bases sem base legal própria.
+- Atender diretamente os pedidos do titular sobre os dados que você detém:
+  acesso, correção, portabilidade e eliminação.
+- Manter registro do tratamento e informar incidentes de segurança que envolvam
+  esses dados em até 48 horas.
+- Indicar um encarregado (DPO) ou canal de contato para assuntos de privacidade.
+
+Formalizamos isso em contrato antes de liberar as credenciais de produção.
+Integração que usar os dados fora da finalidade declarada é suspensa na hora.
+
+**Do nosso lado.** Credenciais ficam em variável de ambiente no servidor, nunca
+em código ou banco. Token e links de sessão nunca vão para log. Retemos o CPF
+apenas enquanto necessário para comprovar o consentimento.
 
 **Operacional**
 
@@ -218,4 +257,4 @@ se resolvem por configuração.
 
 ---
 
-**Contato técnico:** suporte@tocantinstransportewifi.com.br
+**Contato técnico:** integracao@tocantinstransportewifi.com.br

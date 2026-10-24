@@ -18,15 +18,16 @@ class DiscountSponsor extends Model
     public const TYPES = [self::TYPE_VIDEO, self::TYPE_IFRAME, self::TYPE_API];
 
     protected $fillable = [
-        'name', 'slug', 'type', 'is_active',
+        'name', 'legal_name', 'slug', 'type', 'is_active',
         'headline', 'subheadline',
-        'discount_amount', 'min_seconds', 'collects_cpf',
+        'discount_amount', 'min_seconds', 'collects_cpf', 'shares_phone', 'data_purpose',
         'config', 'notes',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'collects_cpf' => 'boolean',
+        'shares_phone' => 'boolean',
         'config' => 'array',
         'discount_amount' => 'decimal:2',
     ];
@@ -60,6 +61,48 @@ class DiscountSponsor extends Model
     public function minSeconds(): int
     {
         return (int) ($this->min_seconds ?: SettingsHelper::getCashCashMinSeconds());
+    }
+
+    /**
+     * Dados do passageiro que saem para este parceiro, em linguagem de gente.
+     * Alimenta o texto de autorização no portal — o passageiro precisa ver
+     * exatamente o que está autorizando.
+     */
+    public function sharedData(): array
+    {
+        $dados = [];
+        if ($this->collects_cpf) $dados[] = 'CPF';
+        if ($this->shares_phone) $dados[] = 'telefone';
+        return $dados;
+    }
+
+    public function sharesAnyData(): bool
+    {
+        return $this->collects_cpf || $this->shares_phone;
+    }
+
+    /** Nome usado no texto de autorização. */
+    public function consentName(): string
+    {
+        return $this->legal_name ?: $this->name;
+    }
+
+    /** Frase de autorização mostrada ao passageiro, montada do cadastro. */
+    public function consentText(): string
+    {
+        $dados = $this->sharedData();
+        if (!$dados) {
+            return '';
+        }
+
+        $lista = count($dados) === 1
+            ? $dados[0]
+            : implode(' e ', [implode(', ', array_slice($dados, 0, -1)), end($dados)]);
+
+        $finalidade = $this->data_purpose ?: 'me apresentar uma oferta';
+
+        return "Autorizo o WiFi Tocantins a enviar meu {$lista} para a {$this->consentName()}, "
+            . "com a finalidade de {$finalidade}.";
     }
 
     public function cfg(string $key, $default = null)
