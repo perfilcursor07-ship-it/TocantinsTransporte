@@ -213,14 +213,31 @@ nome, e-mail, localização de embarque, histórico de viagens nem dados de paga
 O que define quais campos saem é o seu cadastro no nosso painel. Quem só precisa
 de telefone não recebe CPF, e vice-versa.
 
-**A base legal é o consentimento do titular (LGPD, art. 7º, I).** Antes de
-qualquer envio, o passageiro marca no portal uma autorização que diz, com todas
-as letras, **quem** recebe os dados, **quais** dados são e **para quê**:
+**O desconto nunca depende da entrega de dados.** Esta é uma regra
+inegociável do nosso espaço publicitário, e vale para todos os parceiros:
+
+> O passageiro ganha o desconto por **ver o anúncio** pelo tempo mínimo.
+> Informar CPF ou telefone é um passo **separado e opcional**, que não altera
+> o preço nem o desconto.
+
+Na tela, quem não quiser informar nada tem um botão explícito —
+*"Continuar com o desconto, sem informar CPF"* — que libera o mesmo desconto.
+
+Isso não é zelo excessivo. Condicionar desconto à entrega de CPF descaracteriza
+o consentimento como **livre** (LGPD, art. 5º, XII) e configura **venda casada**
+(CDC, art. 39, I). Em agosto de 2026 o TJMA manteve condenação de R$ 10 milhões
+contra uma rede de farmácias exatamente por condicionar descontos ao CPF. Um
+parceiro que peça para amarrar o desconto ao dado não é aceito aqui.
+
+**A base legal do envio é o consentimento do titular (LGPD, art. 7º, I).** Para
+quem opta por informar os dados, o passageiro marca no portal uma autorização
+que diz, com todas as letras, **quem** recebe, **quais** dados são e **para quê**:
 
 > Autorizo o WiFi Tocantins a enviar meu CPF e telefone para a [Parceiro],
 > com a finalidade de [finalidade declarada].
 
-Sem essa marcação, nada é enviado — nem o lead é criado. O nome do parceiro e a
+Sem essa marcação, nada é enviado. E a recusa não custa nada ao passageiro:
+ele segue com o desconto do mesmo jeito. O nome do parceiro e a
 finalidade vêm do seu cadastro, então **nos mande a razão social e a finalidade
 exatamente como devem aparecer** nesse texto.
 

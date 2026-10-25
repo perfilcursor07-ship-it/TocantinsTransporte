@@ -48,6 +48,9 @@ Route::post('/interval/connect', [\App\Http\Controllers\IntervalAccessController
 Route::prefix('cashcash')->group(function () {
     Route::post('/handoff', [\App\Http\Controllers\CashCashController::class, 'handoff'])
         ->middleware('throttle:60,1');
+    // Desconto sem entregar dado pessoal — tem que existir sempre (LGPD/CDC).
+    Route::post('/exposure', [\App\Http\Controllers\CashCashController::class, 'exposure'])
+        ->middleware('throttle:60,1');
     Route::post('/confirm', [\App\Http\Controllers\CashCashController::class, 'confirm'])
         ->middleware('throttle:120,1');
     Route::post('/reopen', [\App\Http\Controllers\CashCashController::class, 'reopen'])

@@ -749,11 +749,29 @@
         <div class="flex items-center justify-center h-full p-4">
             <div class="bg-white rounded-2xl w-full max-w-sm animate-slide-up shadow-2xl overflow-hidden max-h-[94vh] overflow-y-auto">
                 <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-5 py-4 text-center">
-                    <p class="text-white font-extrabold text-base">Seus dados</p>
-                    <p class="text-purple-100 text-xs mt-1">Para montar a proposta no seu nome</p>
+                    <p class="text-white font-extrabold text-base">Seu desconto está garantido</p>
+                    <p class="text-purple-100 text-xs mt-1">Informar CPF é opcional</p>
                 </div>
 
                 <div class="p-5">
+                    <!-- Desconto por ver o anuncio, NUNCA por entregar dado pessoal.
+                         Condicionar desconto a CPF = consentimento nao livre (LGPD
+                         art. 5, XII) e venda casada (CDC art. 39, I). -->
+                    <div id="discount-free-box" class="mb-4 rounded-xl border-2 border-emerald-300 bg-emerald-50 p-3">
+                        <p class="text-[13px] font-bold text-emerald-900">
+                            O desconto é por ver o anúncio. Você <u>não precisa</u> informar CPF para ganhá-lo.
+                        </p>
+                        <p id="discount-free-timer" class="text-[12px] text-emerald-800 mt-1"></p>
+                        <button type="button" id="discount-free-btn" onclick="claimDiscountWithoutData()" disabled
+                            class="mt-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[14px] py-3 rounded-xl disabled:opacity-50">
+                            Continuar com o desconto, sem informar CPF
+                        </button>
+                    </div>
+
+                    <p class="text-[12px] text-gray-500 mb-3 leading-snug">
+                        Se quiser, informe também seus dados para receber a proposta do parceiro.
+                        Isso é <strong>opcional</strong> e não muda o seu desconto.
+                    </p>
                     <label for="discount-phone" class="block text-xs font-bold text-gray-700 mb-1.5">Telefone</label>
                     <input type="tel" id="discount-phone" maxlength="16" inputmode="numeric"
                         class="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-purple-500 text-base font-medium">
@@ -773,7 +791,7 @@
 
                     <button id="discount-consent-submit" onclick="submitDiscountConsent()"
                         class="mt-4 w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold py-3.5 rounded-xl shadow-md text-sm transition-all active:scale-[0.98] disabled:opacity-60">
-                        Ver proposta e ganhar desconto
+                        Quero receber a proposta
                     </button>
 
                     <button onclick="skipDiscountOffer()" class="mt-2 w-full text-[13px] font-semibold text-gray-500 hover:text-gray-700 py-2 underline">
@@ -875,8 +893,11 @@
             continueToPayment();
         };
 
-        /** Escolheu ver a proposta: pede CPF e consentimento. */
-        window.startDiscountOffer = function() {
+        /**
+         * Escolheu ver a oferta. A exposição ao anúncio começa AQUI e já vale
+         * o desconto — o CPF é um passo separado e opcional na mesma tela.
+         */
+        window.startDiscountOffer = async function() {
             hide('discount-choice-modal');
 
             const phoneField = el('discount-phone');
@@ -884,8 +905,66 @@
                 phoneField.value = el('user_phone')?.value || '';
             }
             el('discount-consent-error')?.classList.add('hidden');
-
             show('discount-consent-modal');
+
+            // Abre a exposição sem enviar nenhum dado pessoal.
+            try {
+                const response = await fetch('/api/cashcash/exposure', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    },
+                    body: JSON.stringify({
+                        mac_address: window.wifiPortal?.deviceMac || null,
+                        user_id: window.wifiPortal?.currentUserId || null,
+                    }),
+                });
+                const data = await response.json();
+                if (data?.success) {
+                    lead = { lead_id: data.lead_id };
+                    contarExposicao(data.min_seconds || MIN_SECONDS);
+                }
+            } catch (e) {
+                // Sem exposição registrada, o botão sem-CPF libera pelo tempo local.
+                contarExposicao(MIN_SECONDS);
+            }
+        };
+
+        /** Conta o tempo de anúncio e libera o botão que dispensa o CPF. */
+        function contarExposicao(segundos) {
+            const aviso = el('discount-free-timer');
+            const botao = el('discount-free-btn');
+            let restam = segundos;
+
+            const tick = setInterval(function () {
+                restam--;
+                if (restam > 0) {
+                    if (aviso) aviso.textContent = 'Disponível em ' + restam + 's.';
+                    return;
+                }
+                clearInterval(tick);
+                if (aviso) aviso.textContent = 'Pronto! Seu desconto já está liberado.';
+                if (botao) botao.disabled = false;
+            }, 1000);
+
+            if (aviso) aviso.textContent = 'Disponível em ' + restam + 's.';
+        }
+
+        /** Leva o desconto sem entregar CPF nem telefone ao parceiro. */
+        window.claimDiscountWithoutData = async function() {
+            const data = await tryConfirm();
+
+            if (data?.granted) {
+                applyDiscount(Number(data.discount_amount) || DISCOUNT_AMOUNT);
+            } else {
+                // Exposição não registrada no servidor: honra o tempo contado na tela.
+                applyDiscount(DISCOUNT_AMOUNT);
+            }
+
+            decided = true;
+            continueToPayment();
         };
 
         /** Envia CPF + consentimento e abre a proposta numa aba nova. */
@@ -897,7 +976,7 @@
 
             function fail(message) {
                 if (errorBox) { errorBox.textContent = message; errorBox.classList.remove('hidden'); }
-                if (button) { button.disabled = false; button.textContent = 'Ver proposta e ganhar desconto'; }
+                if (button) { button.disabled = false; button.textContent = 'Quero receber a proposta'; }
             }
 
             if (phone.length < 10 || phone.length > 11) return fail('Digite o telefone com DDD.');

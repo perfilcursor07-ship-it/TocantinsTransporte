@@ -139,6 +139,50 @@ class CashCashController extends Controller
     }
 
     /**
+     * Inicia a exposição ao anúncio SEM nenhum dado pessoal.
+     *
+     * Esta é a rota que torna o desconto independente do CPF. O passageiro
+     * ganha o desconto por ver o anúncio pelo tempo mínimo — informar CPF é
+     * um passo separado e opcional, que não altera o preço.
+     *
+     * Condicionar desconto à entrega de CPF caracteriza consentimento não
+     * livre (LGPD art. 5º, XII) e venda casada (CDC art. 39, I). Por isso
+     * este caminho precisa existir sempre, para qualquer patrocinador.
+     */
+    public function exposure(Request $request)
+    {
+        $validated = $request->validate([
+            'phone' => 'nullable|string|max:20',
+            'mac_address' => 'nullable|string|max:32',
+            'user_id' => 'nullable|integer',
+        ]);
+
+        $mac = strtoupper(trim((string) ($validated['mac_address'] ?? ''))) ?: null;
+
+        // Já tem exposição em andamento para este aparelho? Reaproveita, para o
+        // contador não reiniciar se a página recarregar.
+        $lead = $mac ? DiscountLead::pendingReturnFor($mac) : null;
+
+        if (!$lead) {
+            $lead = DiscountLead::create([
+                'user_id' => $validated['user_id'] ?? null,
+                'phone' => $validated['phone'] ?? null,
+                'mac_address' => $mac,
+                'cpf' => null,                 // nenhum dado pessoal nesta via
+                'status' => DiscountLead::STATUS_CREATED,
+                'link_opened_at' => now(),
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'lead_id' => $lead->id,
+            'min_seconds' => SettingsHelper::getCashCashMinSeconds(),
+            'discount_amount' => SettingsHelper::getVideoDiscountAmount(),
+        ]);
+    }
+
+    /**
      * Passageiro voltou do app. Concede o desconto se ficou o tempo mínimo.
      */
     public function confirm(Request $request)
