@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\DriverPixProfile;
 use App\Models\DriverPixProfileMonth;
+use App\Models\DriverPixPayment;
 use App\Models\DriverPixRegistrationLink;
+use App\Services\DriverPrizeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -69,12 +71,10 @@ class DriverPixRegistrationController extends Controller
             ]);
         }
 
-        $entries = Schema::hasTable('driver_pix_profile_months')
-            ? $profile->monthEntries()->orderByDesc('reference_month')->orderByDesc('id')->limit(6)->get()
-            : collect();
-
         // Prefere o ônibus do último envio; o motorista ainda pode alterar no formulário
-        $latestBus = $entries->first()?->bus_number ?: $profile->bus_number;
+        $latestBus = Schema::hasTable('driver_pix_profile_months')
+            ? ($profile->monthEntries()->orderByDesc('reference_month')->orderByDesc('id')->value('bus_number') ?: $profile->bus_number)
+            : $profile->bus_number;
 
         return response()->json([
             'found' => true,
@@ -84,6 +84,10 @@ class DriverPixRegistrationController extends Controller
                 'phone' => $profile->formattedPhone() !== '—' ? $profile->formattedPhone() : null,
                 'bus_number' => $latestBus,
                 'has_pix_key' => filled($profile->pix_key),
+                // Chave completa: o motorista precisa conferir se está certa antes
+                // de confirmar o pagamento. O acesso já exige o token do link e
+                // conhecer o CPF/telefone do próprio cadastro.
+                'pix_key' => $profile->pix_key ?: null,
                 'pix_key_masked' => $profile->pix_key ? $profile->maskedPixKey() : null,
                 'pix_key_type' => $profile->pix_key
                     ? $this->pixKeyTypeLabel($profile->effectivePixKeyType())
@@ -97,17 +101,7 @@ class DriverPixRegistrationController extends Controller
             ],
             // Quanto o carro dele fez no mês e qual prêmio isso dá.
             'carro' => $this->situacaoDoCarro($latestBus, $link->competencia()->format('Y-m')),
-            'months' => $entries->map(fn ($entry) => [
-                'month' => $entry->reference_month->format('Y-m'),
-                'label' => $entry->monthLabel(),
-                'bus_number' => $entry->bus_number,
-                'status' => $entry->status,
-                'status_label' => match ($entry->status) {
-                    'approved' => 'Confirmado',
-                    'rejected' => 'Rejeitado',
-                    default => 'Em análise',
-                },
-            ])->values(),
+            'pagamento' => $this->pagamentoExistente($profile, $link->competencia()),
         ]);
     }
 
@@ -149,7 +143,30 @@ class DriverPixRegistrationController extends Controller
         $busNumber = mb_strtoupper(trim($validated['bus_number']), 'UTF-8');
         $fullName = mb_strtoupper(trim($validated['full_name']), 'UTF-8');
 
+        $carro = $this->situacaoDoCarro($busNumber, $monthStart->format('Y-m'));
+        if (! $carro) {
+            throw ValidationException::withMessages([
+                'bus_number' => 'O carro informado não foi encontrado. Confira o número antes de continuar.',
+            ]);
+        }
+
+        if ((float) $carro['premio'] <= 0) {
+            $metaMinima = min(array_column(DriverPrizeService::FAIXAS, 0));
+            throw ValidationException::withMessages([
+                'bus_number' => 'Este carro ainda não atingiu a meta mínima de R$ '
+                    . number_format($metaMinima, 2, ',', '.')
+                    . ' em vendas no mês. Você poderá confirmar os dados quando a meta for alcançada.',
+            ]);
+        }
+
         $profile = $this->resolveProfile($cpfDigits, $phoneDigits);
+        $pagamento = $this->pagamentoExistente($profile, $monthStart);
+        if ($pagamento) {
+            throw ValidationException::withMessages([
+                'bus_number' => $pagamento['message'],
+            ]);
+        }
+
         $keepPixKey = $request->boolean('keep_pix_key') && $profile && $profile->pix_key;
 
         if ($keepPixKey) {
@@ -300,13 +317,18 @@ class DriverPixRegistrationController extends Controller
 
         $validated = $request->validate([
             'bus_number' => 'required|string|max:20',
+            'identifier' => 'nullable|string|min:5|max:120',
         ]);
 
         $carro = $this->situacaoDoCarro($validated['bus_number'], $link->competencia()->format('Y-m'));
+        $profile = filled($validated['identifier'] ?? null)
+            ? DriverPixProfile::findByIdentifier($validated['identifier'])
+            : null;
 
         return response()->json([
             'found' => (bool) $carro,
             'carro' => $carro,
+            'pagamento' => $this->pagamentoExistente($profile, $link->competencia()),
         ]);
     }
 
@@ -324,6 +346,7 @@ class DriverPixRegistrationController extends Controller
             'receita' => $dados['receita'],
             'receita_fmt' => 'R$ ' . number_format($dados['receita'], 2, ',', '.'),
             'premio' => $dados['premio'],
+            'meta_minima_fmt' => 'R$ ' . number_format(min(array_column(DriverPrizeService::FAIXAS, 0)), 2, ',', '.'),
             'premio_fmt' => 'R$ ' . number_format($dados['premio'], 2, ',', '.'),
             'motoristas' => $dados['motoristas'],
             'premio_por_motorista' => $dados['premio_por_motorista'],
@@ -375,6 +398,68 @@ class DriverPixRegistrationController extends Controller
             })
             ->orderByDesc('id')
             ->first();
+    }
+
+    private function pagamentoExistente(?DriverPixProfile $profile, $monthStart): ?array
+    {
+        if (! $profile) {
+            return null;
+        }
+
+        $hasPaymentsTable = Schema::hasTable('driver_pix_payments');
+        $hasDirectMonth = $hasPaymentsTable
+            && Schema::hasColumn('driver_pix_payments', 'reference_month');
+        $hasMonthEntry = Schema::hasTable('driver_pix_profile_months')
+            && Schema::hasColumn('driver_pix_profile_months', 'reference_month');
+        $hasMonthRelation = $hasPaymentsTable && $hasMonthEntry
+            && Schema::hasColumn('driver_pix_payments', 'driver_pix_profile_month_id');
+
+        if ($hasPaymentsTable && ($hasDirectMonth || $hasMonthRelation)) {
+            $query = DriverPixPayment::query()
+                ->where('driver_pix_profile_id', $profile->id)
+                ->whereIn('status', ['pending', 'paid'])
+                ->where(function ($month) use ($monthStart, $hasDirectMonth, $hasMonthRelation) {
+                    if ($hasDirectMonth) {
+                        $month->whereDate('reference_month', $monthStart);
+                    }
+
+                    if ($hasMonthRelation) {
+                        $month->orWhereHas('monthEntry', fn ($entry) => $entry->whereDate('reference_month', $monthStart));
+                    }
+                });
+
+            $payment = (clone $query)->where('status', 'pending')->latest('id')->first()
+                ?: (clone $query)->where('status', 'paid')->latest('id')->first();
+
+            if ($payment) {
+                return [
+                    'status' => $payment->status,
+                    'message' => $payment->status === 'pending'
+                        ? 'Já existe um pagamento para este usuário neste mês. Caso ainda não tenha recebido, aguarde o pagamento.'
+                        : 'O pagamento deste mês já consta como realizado para este usuário. Se houver divergência, fale com a administração.',
+                ];
+            }
+        }
+
+        $entry = $hasMonthEntry && Schema::hasColumn('driver_pix_profile_months', 'status')
+            ? DriverPixProfileMonth::query()
+                ->where('driver_pix_profile_id', $profile->id)
+                ->whereDate('reference_month', $monthStart)
+                ->whereIn('status', ['pending', 'approved'])
+                ->latest('id')
+                ->first()
+            : null;
+
+        if (! $entry) {
+            return null;
+        }
+
+        return [
+            'status' => $entry->status === 'pending' ? 'submitted' : 'approved',
+            'message' => $entry->status === 'pending'
+                ? 'Seus dados deste mês já foram enviados e estão em análise. Não é necessário solicitar novamente.'
+                : 'Seus dados deste mês já foram confirmados. Caso ainda não tenha recebido, aguarde o pagamento.',
+        ];
     }
 
     private function pixKeyTypeLabel(string $type): string

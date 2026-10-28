@@ -158,8 +158,13 @@
                 data-phone="{{ $profile->formattedPhone() }}"
                 data-bus="{{ $bus }}"
                 data-month="{{ $monthLabel ?? '' }}"
-                data-pix="{{ $profile->pix_key }}">
+                data-pix="{{ $profile->pix_key }}"
+                data-sugerido="{{ ($card['valor_sugerido'] ?? 0) > 0 ? number_format($card['valor_sugerido'], 2, '.', '') : '' }}">
+          @if(($card['valor_sugerido'] ?? 0) > 0)
+          Pagar R$ {{ number_format($card['valor_sugerido'], 2, ',', '.') }}
+          @else
           Registrar pagamento
+          @endif
         </button>
         @endif
 

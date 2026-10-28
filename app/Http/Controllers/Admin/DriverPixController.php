@@ -7,6 +7,7 @@ use App\Models\DriverPixPayment;
 use App\Models\DriverPixProfile;
 use App\Models\DriverPixProfileMonth;
 use App\Models\DriverPixRegistrationLink;
+use App\Services\DriverPrizeService;
 use App\Services\PixQRCodeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -132,6 +133,24 @@ class DriverPixController extends Controller
             }
         }
 
+        // Quanto cada motorista deve receber: prêmio do carro dividido entre
+        // os motoristas daquele carro. Usa o MESMO cálculo da aba "Carros e
+        // prêmios", para os dois números nunca divergirem.
+        $quadroCarros = \App\Services\DriverPrizeService::quadroDoMes($monthStart->format('Y-m'))
+            ->keyBy('carro');
+
+        $cards = $cards->map(function (array $card) use ($quadroCarros) {
+            $carro = $quadroCarros->get(trim((string) $card['bus']));
+
+            $card['premio_carro'] = (float) ($carro['premio'] ?? 0);
+            $card['receita_carro'] = (float) ($carro['receita'] ?? 0);
+            $card['valor_sugerido'] = (float) ($carro['premio_por_motorista'] ?? 0);
+            $card['motoristas_no_carro'] = (int) ($carro['motoristas'] ?? 0);
+            $card['carro_conhecido'] = (bool) $carro;
+
+            return $card;
+        });
+
         $newProfiles = $cards->where('state', 'new')->values();
         $updates = $cards->where('state', 'update')->values();
         $missing = $cards->where('state', 'missing')->values();
@@ -157,6 +176,15 @@ class DriverPixController extends Controller
                 'new' => $newProfiles->count(),
                 'paid' => $cards->sum('paid_total'),
                 'pending' => $cards->sum(fn ($card) => $card['pending_payment']?->amount ?? 0),
+                // Quanto ainda falta pagar: confirmados, com prêmio, sem pagamento feito.
+                'a_pagar' => $cards->where('state', 'ready')
+                    ->filter(fn ($c) => $c['paid_total'] <= 0 && $c['valor_sugerido'] > 0)
+                    ->sum('valor_sugerido'),
+                'a_pagar_qtd' => $cards->where('state', 'ready')
+                    ->filter(fn ($c) => $c['paid_total'] <= 0 && $c['valor_sugerido'] > 0)
+                    ->count(),
+                'pagos_qtd' => $cards->filter(fn ($c) => $c['paid_total'] > 0)->count(),
+                'pendencias' => $newProfiles->count() + $updates->count() + $missing->count() + $rejected->count(),
             ],
         ];
     }
@@ -638,17 +666,43 @@ class DriverPixController extends Controller
             ?: ($validated['bus_number'] ? mb_strtoupper(trim($validated['bus_number']), 'UTF-8') : $profile->bus_number);
 
         $monthLabel = DriverPixProfileMonth::labelFor($monthStart);
+        $carSituation = DriverPrizeService::situacaoDoCarro($busNumber, $monthStart->format('Y-m'));
 
-        DriverPixPayment::create([
-            'driver_pix_profile_id' => $profile->id,
-            'driver_pix_profile_month_id' => $entry?->id,
-            'reference_month' => $monthStart,
-            'bus_number' => $busNumber,
-            'amount' => $validated['amount'],
-            'description' => $validated['description'] ?? "Pagamento {$monthLabel} — ônibus {$busNumber}",
-            'notes' => $validated['notes'] ?? null,
-            'status' => 'pending',
-        ]);
+        if (! $carSituation || (float) $carSituation['premio'] <= 0) {
+            $minimum = min(array_column(DriverPrizeService::FAIXAS, 0));
+
+            return $this->backToBoard($request)
+                ->with('error', 'Não é possível registrar o pagamento: o carro ainda não atingiu a meta mínima de R$ '
+                    . number_format($minimum, 2, ',', '.') . ' em vendas neste mês.');
+        }
+
+        $payment = DB::transaction(function () use ($profile, $entry, $monthStart, $busNumber, $validated, $monthLabel) {
+            DriverPixProfile::whereKey($profile->id)->lockForUpdate()->first();
+
+            $existing = $this->existingPaymentFor($profile->id, $monthStart);
+            if ($existing) {
+                return $existing;
+            }
+
+            return DriverPixPayment::create([
+                'driver_pix_profile_id' => $profile->id,
+                'driver_pix_profile_month_id' => $entry?->id,
+                'reference_month' => $monthStart,
+                'bus_number' => $busNumber,
+                'amount' => $validated['amount'],
+                'description' => $validated['description'] ?? "Pagamento {$monthLabel} — ônibus {$busNumber}",
+                'notes' => $validated['notes'] ?? null,
+                'status' => 'pending',
+            ]);
+        });
+
+        if (! $payment->wasRecentlyCreated) {
+            $message = $payment->status === 'pending'
+                ? 'Já existe pagamento para este usuário neste mês. Caso ainda não tenha recebido, aguarde o pagamento.'
+                : 'O pagamento deste mês já foi realizado para este usuário.';
+
+            return $this->backToBoard($request)->with('error', $message);
+        }
 
         $next = $entry ? $this->nextEntryToPay($entry) : null;
 
@@ -672,10 +726,30 @@ class DriverPixController extends Controller
             ->where('status', 'approved')
             ->where('id', '!=', $entry->id)
             ->whereHas('profile', fn ($q) => $q->where('status', 'approved'))
-            ->whereDoesntHave('payments', fn ($q) => $q->whereIn('status', ['pending', 'paid']))
+            ->whereDoesntHave('profile.payments', function ($payments) use ($entry) {
+                $payments->whereIn('status', ['pending', 'paid'])
+                    ->where(function ($month) use ($entry) {
+                        $month->whereDate('reference_month', $entry->reference_month)
+                            ->orWhereHas('monthEntry', fn ($monthEntry) => $monthEntry->whereDate('reference_month', $entry->reference_month));
+                    });
+            })
             ->get()
             ->sortBy(fn ($item) => $item->profile?->full_name)
             ->first();
+    }
+
+    private function existingPaymentFor(int $profileId, Carbon $monthStart): ?DriverPixPayment
+    {
+        $query = DriverPixPayment::query()
+            ->where('driver_pix_profile_id', $profileId)
+            ->whereIn('status', ['pending', 'paid'])
+            ->where(function ($month) use ($monthStart) {
+                $month->whereDate('reference_month', $monthStart)
+                    ->orWhereHas('monthEntry', fn ($entry) => $entry->whereDate('reference_month', $monthStart));
+            });
+
+        return (clone $query)->where('status', 'pending')->latest('id')->first()
+            ?: (clone $query)->where('status', 'paid')->latest('id')->first();
     }
 
     public function markPaymentPaid(Request $request, DriverPixPayment $payment)

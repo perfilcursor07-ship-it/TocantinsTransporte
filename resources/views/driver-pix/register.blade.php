@@ -8,22 +8,25 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }
+        @keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-up { animation: fade-up .35s ease-out both; }
     </style>
 </head>
-<body class="bg-gradient-to-br from-emerald-50 via-white to-slate-100 min-h-screen py-8 px-4">
+<body class="bg-gradient-to-br from-emerald-50 via-white to-slate-100 min-h-screen flex flex-col">
 @php
     $hasOld = (bool) old('full_name');
     $currentMonthLabel = $currentMonthLabel ?? \App\Models\DriverPixProfileMonth::labelFor(now());
     $ehMesPassado = $ehMesPassado ?? false;
 @endphp
-<div class="w-full max-w-lg mx-auto">
-    <div class="text-center mb-7">
-        <div class="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-200">
-            <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+<main class="flex-1 p-4 sm:p-6 lg:p-8 pb-20 animate-fade-up">
+<div class="w-full max-w-4xl mx-auto">
+    <div class="text-center mb-4">
+        <div class="w-9 h-9 bg-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-2 shadow-md shadow-emerald-200">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
-        <h1 class="text-2xl font-bold text-slate-800">Cadastro PIX — Motorista</h1>
-        <p class="text-sm text-slate-500 mt-2 max-w-sm mx-auto">
-            Confirme seus dados de <strong class="text-slate-700">{{ $currentMonthLabel }}</strong> para receber o pagamento
+        <h1 class="text-base font-bold text-slate-800">Cadastro PIX — Motorista</h1>
+        <p class="text-[11px] text-slate-500 mt-0.5">
+            Confirme seus dados de <strong class="text-slate-700">{{ $currentMonthLabel }}</strong>
         </p>
     </div>
 
@@ -43,116 +46,119 @@
     @endif
 
     {{-- ETAPA 1: identificar --}}
-    <div class="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 p-5 mb-5">
+    <div class="bg-white rounded-2xl shadow-md shadow-slate-200/60 border border-slate-100 p-3 mb-3">
         <div class="flex items-start gap-3">
-            <div class="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+            <div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
                 <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             </div>
             <div class="flex-1 min-w-0">
-                <h2 class="text-sm font-bold text-slate-800">Comece pela busca</h2>
-                <p class="text-xs text-slate-500 mt-0.5">Digite seu <strong>CPF</strong> ou <strong>telefone</strong> e toque em Buscar. Depois preencha só o que faltar.</p>
+                <h2 class="text-[13px] font-bold text-slate-800">Comece pela busca</h2>
+                <p class="text-[11px] text-slate-500 mt-0.5">Digite seu <strong>CPF</strong> ou <strong>telefone</strong>.</p>
 
                 <div class="flex gap-2 mt-3">
                     <input type="text" id="lookupIdentifier" inputmode="numeric" placeholder="CPF ou telefone com DDD"
-                           class="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition">
+                           class="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition">
                     <button type="button" id="lookupBtn"
-                            class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold whitespace-nowrap transition disabled:opacity-60">
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold whitespace-nowrap transition disabled:opacity-60">
                         Buscar
                     </button>
                 </div>
 
-                <div id="lookupFeedback" class="hidden mt-3 text-xs rounded-xl px-3 py-2.5 leading-relaxed"></div>
+                <div id="lookupFeedback" class="hidden mt-2.5 text-[11px] rounded-lg px-2.5 py-2 leading-snug"></div>
 
-                <div id="lookupHistory" class="hidden mt-3">
-                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Últimos envios</p>
-                    <div id="lookupHistoryList" class="flex flex-wrap gap-1.5"></div>
-                </div>
             </div>
         </div>
     </div>
 
     {{-- ETAPA 2: formulário (só após busca ou erro de validação) --}}
-    <div id="formCard" class="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden {{ $hasOld ? '' : 'hidden' }}">
+    <div id="formCard" class="bg-white rounded-2xl shadow-md shadow-slate-200/60 border border-slate-100 overflow-hidden {{ $hasOld ? '' : 'hidden' }}">
         <form action="{{ route('driver-pix.store', $link->token) }}" method="POST" id="pixForm">
             @csrf
             <input type="hidden" name="keep_pix_key" id="keepPixKeyInput" value="{{ old('keep_pix_key', '0') }}">
             <input type="hidden" name="reference_month" id="referenceMonth" value="{{ old('reference_month', $currentMonth) }}">
 
-            <div class="px-6 pt-5 pb-2">
-                <div class="flex items-center justify-between gap-3 mb-4">
+            <div class="px-3 pt-3 pb-1">
+                <div class="flex items-center justify-between gap-3 mb-2.5">
                     <p class="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Seus dados</p>
                     <span class="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">{{ $currentMonthLabel }}</span>
                 </div>
                 {{-- Campos lado a lado. Nome e CPF ficam travados quando o
                      cadastro foi encontrado: o motorista só ajusta telefone e carro. --}}
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="grid grid-cols-2 gap-2">
                     <div class="sm:col-span-2">
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Nome completo <span class="text-red-500">*</span></label>
+                        <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Nome completo <span class="text-red-500">*</span></label>
                         <input type="text" name="full_name" id="fullName" value="{{ old('full_name') }}" required placeholder="Seu nome completo"
-                               class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition uppercase">
+                               class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[13px] focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition uppercase">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">CPF <span class="text-red-500">*</span></label>
+                        <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">CPF <span class="text-red-500">*</span></label>
                         <input type="text" name="cpf" id="cpf" inputmode="numeric" value="{{ old('cpf') }}" required placeholder="000.000.000-00"
-                               class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition">
+                               class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[13px] focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Telefone (WhatsApp) <span class="text-red-500">*</span></label>
+                        <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Telefone (WhatsApp) <span class="text-red-500">*</span></label>
                         <input type="tel" name="phone" id="phone" value="{{ old('phone') }}" required placeholder="(63) 99999-9999"
-                               class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition">
+                               class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[13px] focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition">
                     </div>
                     <div class="sm:col-span-2">
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Número do ônibus / carro <span class="text-red-500">*</span></label>
+                        <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Número do ônibus / carro <span class="text-red-500">*</span></label>
                         <input type="text" name="bus_number" id="busNumber" value="{{ old('bus_number') }}" required placeholder="Ex: 5013"
-                               class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition uppercase font-semibold tracking-wide">
-                        <p class="text-[11px] text-slate-400 mt-1">Mude se trocou de carro neste mês.</p>
+                               class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[13px] focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition uppercase font-semibold tracking-wide">
+                        <p class="text-[10px] text-slate-400 mt-0.5">Mude se trocou de carro.</p>
                     </div>
                 </div>
 
-                <p id="lockedHint" class="hidden text-[11px] text-slate-400 mt-2">
-                    Nome e CPF vêm do seu cadastro e não mudam aqui. Se estiver errado, fale com a administração.
+                <p id="lockedHint" class="hidden text-[10px] text-slate-400 mt-1.5 leading-snug">
+                    Nome e CPF não mudam aqui. Se estiver errado, fale com a administração.
                 </p>
 
                 {{-- Quanto o carro fez no mês e o prêmio que isso dá --}}
-                <div id="busPrizeBox" class="hidden mt-4 rounded-2xl border p-3.5">
-                    <p class="text-[10px] font-bold uppercase tracking-widest" id="busPrizeTitle"></p>
-                    <div class="flex items-end justify-between gap-3 mt-1.5">
+                <div id="busPrizeBox" class="hidden mt-2 rounded-xl border p-2.5">
+                    <p class="text-[10px] font-bold uppercase tracking-wider" id="busPrizeTitle"></p>
+                    <div class="flex items-end justify-between gap-3 mt-1">
                         <div>
-                            <p class="text-[11px] text-slate-500">Este carro já fez</p>
-                            <p class="text-xl font-bold text-slate-800" id="busRevenue"></p>
+                            <p class="text-[10px] text-slate-500">Este carro já fez</p>
+                            <p class="text-base font-bold text-slate-800 leading-tight" id="busRevenue"></p>
                         </div>
                         <div class="text-right">
-                            <p class="text-[11px] text-slate-500">Prêmio do carro</p>
-                            <p class="text-xl font-bold" id="busPrize"></p>
+                            <p class="text-[10px] text-slate-500">Prêmio do carro</p>
+                            <p class="text-base font-bold leading-tight" id="busPrize"></p>
                         </div>
                     </div>
-                    <p class="text-[11px] mt-2 leading-relaxed" id="busPrizeNote"></p>
+                    <p class="text-[10px] mt-1.5 leading-snug" id="busPrizeNote"></p>
+                </div>
+                <div id="paymentNotice" class="hidden mt-2 rounded-xl border px-3 py-2 text-sm leading-relaxed">
+                    <p id="paymentNoticeText"></p>
                 </div>
 
-            <div class="px-6 py-5 mt-2 bg-slate-50/80 border-t border-slate-100">
+            <div class="px-3 py-3 mt-1 bg-slate-50/80 border-t border-slate-100">
                 <p class="text-[10px] font-bold uppercase tracking-widest text-emerald-600 mb-4">Chave PIX para receber</p>
 
                 {{-- Chave já cadastrada: mostra e pede confirmação explícita. --}}
-                <div id="keepPixBox" class="hidden mb-4 rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-4">
-                    <p class="text-[11px] font-bold uppercase tracking-widest text-emerald-700">Sua chave cadastrada</p>
-                    <p class="text-lg font-bold text-slate-800 mt-1 break-all" id="keepPixValue"></p>
-                    <p class="text-[11px] text-slate-500 mt-0.5" id="keepPixInfo"></p>
+                <div id="keepPixBox" class="hidden mb-2 rounded-xl border-2 border-emerald-300 bg-emerald-50 p-2.5">
+                    <div class="flex items-center justify-between gap-2">
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Sua chave cadastrada</p>
+                        <span class="text-[10px] text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded" id="keepPixInfo"></span>
+                    </div>
 
-                    <label class="flex items-start gap-2.5 mt-3 cursor-pointer">
+                    <p class="text-sm font-bold text-slate-900 mt-0.5 break-all leading-snug" id="keepPixValue"></p>
+                    <p class="text-[10px] text-slate-500 mt-0.5">Confira se está exatamente igual à do seu banco.</p>
+
+                    <label class="flex items-start gap-2 mt-2 cursor-pointer">
                         <input type="checkbox" id="keepPixCheckbox" checked
-                               class="mt-0.5 w-5 h-5 flex-shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
-                        <span class="text-sm font-semibold text-slate-800 leading-snug">
+                               class="mt-0.5 w-4 h-4 flex-shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                        <span class="text-[13px] font-semibold text-slate-800 leading-snug">
                             Confirmo que o pagamento é para esta chave
                         </span>
                     </label>
 
                     <button type="button" id="changePixBtn"
-                            class="mt-2 text-[12px] font-semibold text-slate-500 underline hover:text-slate-700">
+                            class="mt-1 text-[11px] font-semibold text-slate-500 underline hover:text-slate-700">
                         Trocar minha chave PIX
                     </button>
                 </div>
 
-                <div id="pixFields" class="space-y-4">
+                <div id="pixFields" class="space-y-3">
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-1.5">Chave PIX <span class="text-red-500">*</span></label>
                         <input type="text" name="pix_key" id="pixKey" value="{{ old('pix_key') }}" placeholder="CPF, e-mail, telefone ou chave aleatória"
@@ -167,8 +173,8 @@
                 </div>
             </div>
 
-            <div class="px-6 pb-6 pt-4">
-                <button type="submit" id="submitBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white py-3.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-200/50">
+            <div class="px-3 pb-3 pt-2">
+                <button type="submit" id="submitBtn" disabled data-label="Confirmar dados de {{ $currentMonthLabel }}" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white py-3 rounded-xl font-bold text-sm transition-all shadow-md shadow-emerald-200/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none">
                     Confirmar dados de {{ $currentMonthLabel }}
                 </button>
             </div>
@@ -179,6 +185,7 @@
         Depois da busca, os campos aparecem para você completar o que faltar.
     </p>
 </div>
+</main>
 
 <script>
 (function () {
@@ -189,8 +196,6 @@
     const el = (id) => document.getElementById(id);
     const identifier = el('lookupIdentifier');
     const feedback = el('lookupFeedback');
-    const history = el('lookupHistory');
-    const historyList = el('lookupHistoryList');
     const formCard = el('formCard');
     const formHint = el('formHint');
     const keepBox = el('keepPixBox');
@@ -200,8 +205,39 @@
     const pixFields = el('pixFields');
     const pixKey = el('pixKey');
     const pixKeyConfirmation = el('pixKeyConfirmation');
+    let carroAtingiuMeta = false;
+    let pagamentoBloqueia = false;
 
     const busStatusUrl = @json(route('driver-pix.bus-status', $link->token));
+
+    function updateSubmitButton() {
+        const button = el('submitBtn');
+        if (!button) return;
+        button.disabled = !carroAtingiuMeta || pagamentoBloqueia;
+    }
+
+    function renderPayment(payment) {
+        const notice = el('paymentNotice');
+        const text = el('paymentNoticeText');
+        pagamentoBloqueia = Boolean(payment);
+        if (!notice || !text) {
+            updateSubmitButton();
+            return;
+        }
+
+        if (!payment) {
+            notice.classList.add('hidden');
+            updateSubmitButton();
+            return;
+        }
+
+        text.textContent = payment.message || 'Já existe um pagamento para este mês e carro. Caso ainda não tenha recebido, aguarde o pagamento.';
+        notice.className = 'mt-3 rounded-xl border px-3 py-2.5 text-sm leading-relaxed ' +
+            (payment.status === 'paid'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : 'border-amber-200 bg-amber-50 text-amber-900');
+        updateSubmitButton();
+    }
 
     /** Trava nome e CPF quando o cadastro já existe. */
     function lockIdentity(lock) {
@@ -223,10 +259,14 @@
 
         if (!carro) {
             box.classList.add('hidden');
+            carroAtingiuMeta = false;
+            updateSubmitButton();
             return;
         }
 
         const premiado = Number(carro.premio) > 0;
+        carroAtingiuMeta = premiado;
+        updateSubmitButton();
         box.className = 'mt-4 rounded-2xl border p-3.5 ' +
             (premiado ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-slate-50');
 
@@ -239,12 +279,8 @@
         el('busPrize').className = 'text-xl font-bold ' + (premiado ? 'text-emerald-700' : 'text-slate-400');
 
         let nota;
-        if (premiado && carro.motoristas > 1) {
-            nota = 'O prêmio é do carro e dividido entre os ' + carro.motoristas +
-                   ' motoristas cadastrados nele: <strong>' + carro.premio_por_motorista_fmt +
-                   '</strong> para cada um.';
-        } else if (premiado) {
-            nota = 'O prêmio é do carro. Se outro motorista também se cadastrar neste carro, o valor é dividido entre vocês.';
+        if (premiado) {
+            nota = 'Observação: o prêmio será dividido entre os motoristas do carro, conforme a quantidade cadastrada.';
         } else if (carro.falta_fmt) {
             nota = 'Faltam <strong>' + carro.falta_fmt + '</strong> em vendas neste carro para alcançar o prêmio de ' +
                    carro.proximo_premio_fmt + '.';
@@ -252,6 +288,10 @@
             nota = 'Este carro ainda não atingiu nenhuma faixa de prêmio neste mês.';
         }
 
+        if (!premiado) {
+            nota += '<br><strong>A confirmação será liberada quando o carro alcançar a meta mínima de ' +
+                    carro.meta_minima_fmt + ' em vendas.</strong>';
+        }
         nota += '<br><span class="text-slate-400">Valor parcial do mês — o fechamento é no fim do mês.</span>';
         el('busPrizeNote').innerHTML = nota;
         el('busPrizeNote').className = 'text-[11px] mt-2 leading-relaxed ' +
@@ -263,9 +303,19 @@
     /** Consulta o carro digitado (usado quando o motorista troca de carro). */
     async function fetchBusPrize(numero) {
         const limpo = (numero || '').trim();
-        if (!limpo) { renderBusPrize(null); return; }
+        if (!limpo) {
+            renderBusPrize(null);
+            renderPayment(null);
+            return;
+        }
 
         try {
+            const body = { bus_number: limpo };
+            const identifierValue = el('cpf')?.value || el('phone')?.value || '';
+            if (identifierValue.replace(/\D/g, '').length >= 10) {
+                body.identifier = identifierValue;
+            }
+
             const resp = await fetch(busStatusUrl, {
                 method: 'POST',
                 headers: {
@@ -273,12 +323,14 @@
                     'Accept': 'application/json',
                     'X-CSRF-TOKEN': csrf,
                 },
-                body: JSON.stringify({ bus_number: limpo }),
+                body: JSON.stringify(body),
             });
             const data = await resp.json();
             renderBusPrize(data?.carro || null);
+            renderPayment(data?.pagamento || null);
         } catch (e) {
             renderBusPrize(null);
+            renderPayment(null);
         }
     }
 
@@ -295,6 +347,8 @@
         el('busNumber')?.addEventListener('input', function () {
             clearTimeout(tempo);
             const valor = this.value;
+            renderBusPrize(null);
+            renderPayment(null);
             tempo = setTimeout(() => fetchBusPrize(valor), 600);
         });
     });
@@ -414,9 +468,9 @@
             if (!res.ok || !data.found) {
                 clearFormFields();
                 fillFromIdentifier(value);
-                history.classList.add('hidden');
                 lockIdentity(false);
                 renderBusPrize(null);
+                renderPayment(null);
                 showFeedback(data.message || 'Não encontramos seu cadastro. Preencha os campos abaixo.', 'warn');
                 focusFirstEmpty();
                 return;
@@ -430,13 +484,14 @@
             fillFromIdentifier(value);
             lockIdentity(true);
             renderBusPrize(data.carro || null);
+            renderPayment(data.pagamento || null);
 
             if (p.has_pix_key) {
                 keepBox.classList.remove('hidden');
                 keepCheckbox.checked = true;
                 const valor = el('keepPixValue');
-                if (valor) valor.textContent = p.pix_key_masked || '';
-                keepInfo.textContent = 'Tipo: ' + (p.pix_key_type || 'chave');
+                if (valor) valor.textContent = p.pix_key || p.pix_key_masked || '';
+                keepInfo.textContent = p.pix_key_type || 'chave';
             } else {
                 keepBox.classList.add('hidden');
                 keepCheckbox.checked = false;
@@ -444,23 +499,12 @@
             applyKeepState();
 
             showFeedback(
-                '<strong>Cadastro encontrado:</strong> ' + (p.full_name || 'motorista') +
-                ' — ' + p.status_label + '.<br>Complete o que estiver em branco e confira o ônibus deste mês.',
-                'success'
+                data.pagamento
+                    ? data.pagamento.message
+                    : '<strong>' + (p.full_name || 'Motorista') + '</strong> · ' + p.status_label +
+                      '. Confira o carro e a chave PIX.',
+                data.pagamento ? 'warn' : 'success'
             );
-
-            if (data.months && data.months.length) {
-                historyList.innerHTML = data.months.map((m) => {
-                    const tone = m.status === 'approved'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : (m.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800');
-                    return '<span class="px-2 py-1 rounded-lg text-[10px] font-bold ' + tone + '">' +
-                        m.label + ' · carro ' + m.bus_number + ' · ' + m.status_label + '</span>';
-                }).join('');
-                history.classList.remove('hidden');
-            } else {
-                history.classList.add('hidden');
-            }
 
             focusFirstEmpty();
         } catch (err) {
@@ -468,6 +512,8 @@
             clearFormFields();
             fillFromIdentifier(value);
             lockIdentity(false);
+            renderBusPrize(null);
+            renderPayment(null);
             showFeedback('Não foi possível consultar agora. Preencha o formulário manualmente.', 'error');
             focusFirstEmpty();
         } finally {
@@ -496,7 +542,13 @@
         }
     });
 
-    el('pixForm')?.addEventListener('submit', function () {
+    el('pixForm')?.addEventListener('submit', function (event) {
+        if (!carroAtingiuMeta || pagamentoBloqueia) {
+            event.preventDefault();
+            updateSubmitButton();
+            return;
+        }
+
         el('fullName').value = el('fullName').value.toUpperCase();
         el('busNumber').value = el('busNumber').value.toUpperCase();
         el('referenceMonth').value = currentMonth;
@@ -511,6 +563,7 @@
 
     if (@json($hasOld)) {
         applyKeepState();
+        fetchBusPrize(el('busNumber')?.value || '');
     } else {
         applyKeepState();
     }

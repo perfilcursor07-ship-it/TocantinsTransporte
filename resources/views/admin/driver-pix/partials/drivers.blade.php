@@ -1,12 +1,31 @@
+@php
+    // A página responde três perguntas, nesta ordem:
+    //   1. Quanto eu pago agora, e para quem?
+    //   2. O que já foi pago neste mês?
+    //   3. O que está travado esperando alguma ação minha?
+    $aPagar   = $cards->where('state', 'ready')
+                      ->filter(fn ($c) => $c['paid_total'] <= 0 && $c['valor_sugerido'] > 0)
+                      ->sortBy(fn ($c) => $c['bus'])
+                      ->groupBy('bus');
+
+    $semPremio = $cards->where('state', 'ready')
+                       ->filter(fn ($c) => $c['paid_total'] <= 0 && $c['valor_sugerido'] <= 0);
+
+    $jaPagos  = $cards->filter(fn ($c) => $c['paid_total'] > 0)
+                      ->sortBy(fn ($c) => $c['profile']->full_name);
+
+    $pendencias = $newProfiles->count() + $updates->count() + $missing->count() + $rejectedCards->count();
+@endphp
+
 <div class="space-y-4">
 
-  {{-- Barra de competência + filtros --}}
+  {{-- ====== Filtros (enxutos) ====== --}}
   <div class="bg-white rounded-2xl border border-border shadow-card p-4">
     <form method="GET" class="flex flex-wrap gap-3 items-end">
       <input type="hidden" name="tab" value="drivers">
 
-      <div class="min-w-[190px]">
-        <label class="block text-[10px] font-bold uppercase text-muted tracking-wider mb-1">Competência (mês)</label>
+      <div class="min-w-[180px]">
+        <label class="block text-[10px] font-bold uppercase text-muted tracking-wider mb-1">Competência</label>
         <select name="month" onchange="this.form.submit()"
                 class="w-full px-3 py-2.5 border border-border rounded-xl text-sm font-semibold bg-white focus:border-green">
           @foreach($monthOptions as $value => $label)
@@ -27,16 +46,6 @@
                class="w-full px-3 py-2.5 border border-border rounded-xl text-sm bg-white focus:border-green">
       </div>
 
-      <div class="w-40">
-        <label class="block text-[10px] font-bold uppercase text-muted tracking-wider mb-1">Status cadastro</label>
-        <select name="status" class="w-full px-3 py-2.5 border border-border rounded-xl text-sm bg-white focus:border-green">
-          <option value="">Todos</option>
-          <option value="pending" @selected(request('status')==='pending')>Pendentes</option>
-          <option value="approved" @selected(request('status')==='approved')>Aprovados</option>
-          <option value="rejected" @selected(request('status')==='rejected')>Rejeitados</option>
-        </select>
-      </div>
-
       <button type="submit" class="px-5 py-2.5 bg-green text-white rounded-xl text-sm font-bold hover:bg-green-dark">Filtrar</button>
 
       @if(request('q') || request('bus') || request('status'))
@@ -44,156 +53,183 @@
          class="px-4 py-2.5 text-sm font-semibold text-muted hover:text-ink">Limpar</a>
       @endif
     </form>
-
-    {{-- Resumo do mês --}}
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mt-4 pt-4 border-t border-border">
-      <div class="bg-green-pale/60 rounded-xl px-3 py-2">
-        <p class="text-[10px] font-bold uppercase text-green-dark tracking-wider">Confirmados</p>
-        <p class="text-lg font-bold text-green-dark">{{ $monthTotals['ready'] }}</p>
-      </div>
-      <div class="bg-slate-100 rounded-xl px-3 py-2">
-        <p class="text-[10px] font-bold uppercase text-slate-600 tracking-wider">Não confirmaram</p>
-        <p class="text-lg font-bold text-slate-700">{{ $monthTotals['missing'] }}</p>
-      </div>
-      <div class="bg-blue-pale rounded-xl px-3 py-2">
-        <p class="text-[10px] font-bold uppercase text-blue tracking-wider">Alterações</p>
-        <p class="text-lg font-bold text-blue">{{ $monthTotals['updates'] }}</p>
-      </div>
-      <div class="bg-amber-50 rounded-xl px-3 py-2">
-        <p class="text-[10px] font-bold uppercase text-amber-700 tracking-wider">Novos cadastros</p>
-        <p class="text-lg font-bold text-amber-700">{{ $monthTotals['new'] }}</p>
-      </div>
-      <div class="bg-surface rounded-xl px-3 py-2">
-        <p class="text-[10px] font-bold uppercase text-muted tracking-wider">A pagar no mês</p>
-        <p class="text-lg font-bold text-ink">R$ {{ number_format($monthTotals['pending'], 2, ',', '.') }}</p>
-      </div>
-      <div class="bg-surface rounded-xl px-3 py-2">
-        <p class="text-[10px] font-bold uppercase text-muted tracking-wider">Pago no mês</p>
-        <p class="text-lg font-bold text-green">R$ {{ number_format($monthTotals['paid'], 2, ',', '.') }}</p>
-      </div>
-    </div>
   </div>
 
-  <div class="bg-white rounded-2xl border border-border shadow-card overflow-hidden">
-    <div class="p-5 border-b border-border bg-surface/50">
-      <h3 class="text-base font-bold text-ink">Motoristas — {{ $monthLabel }}</h3>
-      <p class="text-xs text-muted mt-0.5">
-        Cada linha é um motorista em um carro do mês. Quem trocou de carro aparece uma vez por carro.
-      </p>
+  {{-- ====== 1. A PAGAR ====== --}}
+  <div class="bg-white rounded-2xl border-2 border-green/30 shadow-card overflow-hidden">
+    <div class="px-5 py-4 bg-green-pale/50 border-b border-green/20 flex items-center justify-between gap-4 flex-wrap">
+      <div>
+        <h3 class="text-base font-bold text-green-dark">1 · A pagar em {{ $monthLabel }}</h3>
+        <p class="text-xs text-muted mt-0.5">Motoristas que confirmaram o mês e o carro ganhou prêmio.</p>
+      </div>
+      <div class="text-right">
+        <p class="text-2xl font-bold text-green-dark">R$ {{ number_format($monthTotals['a_pagar'], 2, ',', '.') }}</p>
+        <p class="text-[11px] text-muted">{{ $monthTotals['a_pagar_qtd'] }} motorista(s)</p>
+      </div>
     </div>
 
-    @if($hasDrivers)
-
-      {{-- 1. Novos cadastros --}}
-      @if($newProfiles->count())
-      <div class="border-b border-border">
-        <div class="px-5 py-3 bg-amber-50 border-b border-amber-100 flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-          <h4 class="text-sm font-bold text-amber-900">Novos cadastros aguardando aprovação ({{ $newProfiles->count() }})</h4>
-        </div>
-        <div class="divide-y divide-border">
-          @foreach($newProfiles as $card)
-            @include('admin.driver-pix.partials.driver-row', ['card' => $card])
-          @endforeach
-        </div>
-      </div>
-      @endif
-
-      {{-- 2. Alterações do mês --}}
-      @if($updates->count())
-      <div class="border-b border-border">
-        <div class="px-5 py-3 bg-blue-pale border-b border-blue/10 flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-blue"></span>
-          <h4 class="text-sm font-bold text-blue">Alterações enviadas em {{ $monthLabel }} ({{ $updates->count() }})</h4>
-        </div>
-        <div class="divide-y divide-border">
-          @foreach($updates as $card)
-            @include('admin.driver-pix.partials.driver-row', ['card' => $card])
-          @endforeach
-        </div>
-      </div>
-      @endif
-
-      {{-- 3. Confirmados por ônibus (prontos para pagar) --}}
-      @if($readyByBus->count())
-      <div class="border-b border-border">
-        <div class="px-5 py-3 bg-green-pale/50 border-b border-green/10">
-          <h4 class="text-sm font-bold text-green-dark">Confirmados em {{ $monthLabel }} — prontos para pagar</h4>
-        </div>
-        @foreach($readyByBus as $busNumber => $busCards)
-        <div class="border-b border-border last:border-b-0">
-          <div class="px-5 py-3 bg-surface/80 border-b border-border flex items-center justify-between gap-3">
-            <div class="flex items-center gap-3">
-              <span class="w-10 h-10 rounded-xl bg-green text-white flex items-center justify-center text-sm font-bold shadow-card">
-                {{ $busNumber }}
-              </span>
-              <div>
-                <p class="text-sm font-bold text-ink">Ônibus {{ $busNumber }}</p>
-                <p class="text-[11px] text-muted">{{ $busCards->count() }} motorista(s) no mês</p>
-              </div>
-            </div>
-            <div class="text-right">
-              <p class="text-xs font-semibold text-green">
-                R$ {{ number_format($busCards->sum('paid_total'), 2, ',', '.') }} pagos
+    @if($aPagar->count())
+      @foreach($aPagar as $busNumber => $busCards)
+      @php $primeiro = $busCards->first(); @endphp
+      <div class="border-b border-border last:border-b-0">
+        <div class="px-5 py-2.5 bg-surface/80 border-b border-border flex items-center justify-between gap-3 flex-wrap">
+          <div class="flex items-center gap-2.5">
+            <span class="w-9 h-9 rounded-xl bg-green text-white flex items-center justify-center text-xs font-bold">
+              {{ $busNumber }}
+            </span>
+            <div>
+              <p class="text-sm font-bold text-ink">Ônibus {{ $busNumber }}</p>
+              <p class="text-[11px] text-muted">
+                Receita R$ {{ number_format($primeiro['receita_carro'], 2, ',', '.') }}
+                · Prêmio do carro R$ {{ number_format($primeiro['premio_carro'], 2, ',', '.') }}
+                ÷ {{ $primeiro['motoristas_no_carro'] }} motorista(s)
               </p>
-              @php $busPending = $busCards->sum(fn ($c) => $c['pending_payment']?->amount ?? 0); @endphp
-              @if($busPending > 0)
-              <p class="text-[11px] text-amber-700">R$ {{ number_format($busPending, 2, ',', '.') }} pendentes</p>
-              @endif
             </div>
           </div>
-          <div class="divide-y divide-border/60">
-            @foreach($busCards as $card)
-              @include('admin.driver-pix.partials.driver-row', ['card' => $card, 'compact' => true])
-            @endforeach
-          </div>
+          <p class="text-sm font-bold text-green-dark">
+            R$ {{ number_format($busCards->sum('valor_sugerido'), 2, ',', '.') }} a pagar
+          </p>
         </div>
+        <div class="divide-y divide-border/60">
+          @foreach($busCards as $card)
+            @include('admin.driver-pix.partials.driver-row', ['card' => $card, 'compact' => true])
+          @endforeach
+        </div>
+      </div>
+      @endforeach
+    @else
+      <div class="px-5 py-8 text-center">
+        <p class="text-sm text-muted">Nada a pagar em {{ $monthLabel }}.</p>
+        @if($monthTotals['missing'] > 0)
+        <p class="text-xs text-muted mt-1">
+          {{ $monthTotals['missing'] }} motorista(s) ainda não confirmaram o mês — veja em Pendências abaixo.
+        </p>
+        @endif
+      </div>
+    @endif
+
+    @if($semPremio->count())
+    <div class="px-5 py-3 bg-slate-50 border-t border-border">
+      <p class="text-xs text-slate-600">
+        <strong>{{ $semPremio->count() }} motorista(s) confirmaram, mas o carro não bateu a faixa de prêmio</strong>
+        — {{ $semPremio->pluck('bus')->unique()->sort()->join(', ') }}.
+        Veja quanto falta na aba
+        <a href="{{ route('admin.driver-pix.index', ['tab' => 'carros', 'month' => $month]) }}" class="text-green underline font-semibold">Carros e prêmios</a>.
+      </p>
+    </div>
+    @endif
+  </div>
+
+  {{-- ====== 2. JÁ PAGO ====== --}}
+  <details class="bg-white rounded-2xl border border-border shadow-card overflow-hidden" @if($jaPagos->count() && !$aPagar->count()) open @endif>
+    <summary class="px-5 py-4 cursor-pointer flex items-center justify-between gap-4 hover:bg-surface/50">
+      <div>
+        <h3 class="text-base font-bold text-ink">2 · Já pago em {{ $monthLabel }}</h3>
+        <p class="text-xs text-muted mt-0.5">{{ $monthTotals['pagos_qtd'] }} motorista(s) com pagamento registrado.</p>
+      </div>
+      <p class="text-xl font-bold text-green">R$ {{ number_format($monthTotals['paid'], 2, ',', '.') }}</p>
+    </summary>
+
+    @if($jaPagos->count())
+    <div class="divide-y divide-border border-t border-border">
+      @foreach($jaPagos as $card)
+        @include('admin.driver-pix.partials.driver-row', ['card' => $card, 'compact' => true])
+      @endforeach
+    </div>
+    @else
+    <div class="px-5 py-8 text-center border-t border-border">
+      <p class="text-sm text-muted">Nenhum pagamento registrado em {{ $monthLabel }}.</p>
+    </div>
+    @endif
+  </details>
+
+  {{-- ====== 3. PENDÊNCIAS ====== --}}
+  <details class="bg-white rounded-2xl border border-border shadow-card overflow-hidden" @if(!$aPagar->count() && $pendencias) open @endif>
+    <summary class="px-5 py-4 cursor-pointer flex items-center justify-between gap-4 hover:bg-surface/50">
+      <div>
+        <h3 class="text-base font-bold text-ink">3 · Pendências</h3>
+        <p class="text-xs text-muted mt-0.5">O que precisa de ação sua antes de poder pagar.</p>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap justify-end">
+        @if($newProfiles->count())
+        <span class="px-2 py-1 rounded-lg bg-amber-100 text-amber-800 text-[11px] font-bold">{{ $newProfiles->count() }} novo(s)</span>
+        @endif
+        @if($updates->count())
+        <span class="px-2 py-1 rounded-lg bg-blue-pale text-blue text-[11px] font-bold">{{ $updates->count() }} alteração(ões)</span>
+        @endif
+        @if($missing->count())
+        <span class="px-2 py-1 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-bold">{{ $missing->count() }} não confirmou</span>
+        @endif
+        @if($rejectedCards->count())
+        <span class="px-2 py-1 rounded-lg bg-red-pale text-red text-[11px] font-bold">{{ $rejectedCards->count() }} rejeitado(s)</span>
+        @endif
+        @unless($pendencias)
+        <span class="px-2 py-1 rounded-lg bg-green-pale text-green-dark text-[11px] font-bold">tudo em dia</span>
+        @endunless
+      </div>
+    </summary>
+
+    <div class="border-t border-border">
+      @if($newProfiles->count())
+      <div class="px-5 py-2.5 bg-amber-50 border-b border-amber-100 flex items-center justify-between gap-2">
+        <h4 class="text-sm font-bold text-amber-900">Novos cadastros — aprovar antes de pagar ({{ $newProfiles->count() }})</h4>
+      </div>
+      <div class="divide-y divide-border">
+        @foreach($newProfiles as $card)
+          @include('admin.driver-pix.partials.driver-row', ['card' => $card])
         @endforeach
       </div>
       @endif
 
-      {{-- 4. Não confirmaram o mês --}}
+      @if($updates->count())
+      <div class="px-5 py-2.5 bg-blue-pale border-y border-blue/10">
+        <h4 class="text-sm font-bold text-blue">Alterações enviadas — conferir ({{ $updates->count() }})</h4>
+      </div>
+      <div class="divide-y divide-border">
+        @foreach($updates as $card)
+          @include('admin.driver-pix.partials.driver-row', ['card' => $card])
+        @endforeach
+      </div>
+      @endif
+
       @if($missing->count())
-      <div class="border-b border-border">
-        <div class="px-5 py-3 bg-slate-100 border-b border-border flex items-center justify-between gap-3">
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-slate-400"></span>
-            <h4 class="text-sm font-bold text-slate-700">Sem cadastro em {{ $monthLabel }} ({{ $missing->count() }})</h4>
-          </div>
-          <a href="{{ route('admin.driver-pix.index', ['tab' => 'links']) }}" class="text-[11px] font-bold text-green hover:underline">
-            Enviar link de atualização →
-          </a>
-        </div>
-        <div class="divide-y divide-border">
-          @foreach($missing as $card)
-            @include('admin.driver-pix.partials.driver-row', ['card' => $card])
-          @endforeach
-        </div>
+      <div class="px-5 py-2.5 bg-slate-100 border-y border-border flex items-center justify-between gap-3 flex-wrap">
+        <h4 class="text-sm font-bold text-slate-700">Não confirmaram {{ $monthLabel }} ({{ $missing->count() }})</h4>
+        <a href="{{ route('admin.driver-pix.index', ['tab' => 'links', 'month' => $month]) }}"
+           class="text-[11px] font-bold text-green hover:underline">Gerar link de {{ $monthLabel }} →</a>
+      </div>
+      <div class="divide-y divide-border">
+        @foreach($missing as $card)
+          @include('admin.driver-pix.partials.driver-row', ['card' => $card])
+        @endforeach
       </div>
       @endif
 
-      {{-- 5. Rejeitados --}}
       @if($rejectedCards->count())
-      <div>
-        <div class="px-5 py-3 bg-red-pale/50 border-b border-red/10 flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-red"></span>
-          <h4 class="text-sm font-bold text-red">Rejeitados ({{ $rejectedCards->count() }})</h4>
-        </div>
-        <div class="divide-y divide-border">
-          @foreach($rejectedCards as $card)
-            @include('admin.driver-pix.partials.driver-row', ['card' => $card])
-          @endforeach
-        </div>
+      <div class="px-5 py-2.5 bg-red-pale/50 border-y border-red/10">
+        <h4 class="text-sm font-bold text-red">Rejeitados ({{ $rejectedCards->count() }})</h4>
+      </div>
+      <div class="divide-y divide-border">
+        @foreach($rejectedCards as $card)
+          @include('admin.driver-pix.partials.driver-row', ['card' => $card])
+        @endforeach
       </div>
       @endif
 
-    @else
-      <div class="p-12 text-center">
-        <p class="text-muted text-sm">Nenhum motorista encontrado para {{ $monthLabel }}.</p>
-        <a href="{{ route('admin.driver-pix.index', ['tab' => 'links']) }}" class="inline-block mt-3 text-sm font-semibold text-green hover:underline">Gerar link de cadastro →</a>
+      @unless($pendencias)
+      <div class="px-5 py-8 text-center">
+        <p class="text-sm text-muted">Nenhuma pendência em {{ $monthLabel }}.</p>
       </div>
-    @endif
+      @endunless
+    </div>
+  </details>
+
+  @unless($hasDrivers)
+  <div class="bg-white rounded-2xl border border-border shadow-card p-12 text-center">
+    <p class="text-muted text-sm">Nenhum motorista cadastrado ainda.</p>
+    <a href="{{ route('admin.driver-pix.index', ['tab' => 'links']) }}" class="inline-block mt-3 text-sm font-semibold text-green hover:underline">Gerar link de cadastro →</a>
   </div>
+  @endunless
 </div>
 
 @push('modals')
@@ -343,7 +379,11 @@
         document.querySelectorAll(selector).forEach(btn => btn.addEventListener('click', handler));
     }
 
-    bindButtons('.btn-register-payment', (e) => openCreateModal(e.currentTarget.dataset));
+    // Abre já com o valor do prêmio preenchido (prêmio do carro ÷ motoristas).
+    bindButtons('.btn-register-payment', (e) => {
+        const d = e.currentTarget.dataset;
+        openCreateModal(d, d.sugerido || undefined, d.sugerido ? ('Prêmio ' + (d.month || '')) : undefined);
+    });
     bindButtons('.btn-pay-pending', (e) => openPayModal(e.currentTarget.dataset));
     bindButtons('.btn-edit-driver', (e) => openEditModal(e.currentTarget.dataset));
 

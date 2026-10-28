@@ -32,32 +32,27 @@
     </div>
     @endif
 
-    {{-- Indicadores da competência selecionada --}}
-    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <div class="bg-white rounded-2xl border border-border p-4 shadow-card">
-            <p class="text-[10px] font-bold uppercase text-muted tracking-wider">Confirmados · {{ $monthLabel }}</p>
-            <p class="text-2xl font-bold text-green mt-1">{{ $stats['month_confirmed'] }}</p>
-            <p class="text-[10px] text-muted mt-0.5">de {{ $stats['approved_profiles'] }} aprovados</p>
+    {{-- Indicadores: as mesmas três perguntas que a aba Motoristas responde --}}
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="bg-white rounded-2xl border-2 border-green/30 p-4 shadow-card">
+            <p class="text-[10px] font-bold uppercase text-green-dark tracking-wider">A pagar · {{ $monthLabel }}</p>
+            <p class="text-2xl font-bold text-green-dark mt-1">R$ {{ number_format($monthTotals['a_pagar'] ?? 0, 2, ',', '.') }}</p>
+            <p class="text-[10px] text-muted mt-0.5">{{ $monthTotals['a_pagar_qtd'] ?? 0 }} motorista(s) confirmado(s)</p>
         </div>
         <div class="bg-white rounded-2xl border border-border p-4 shadow-card">
-            <p class="text-[10px] font-bold uppercase text-muted tracking-wider">Faltam confirmar</p>
-            <p class="text-2xl font-bold text-slate-600 mt-1">{{ $stats['month_missing'] }}</p>
-            <p class="text-[10px] text-muted mt-0.5">no mês selecionado</p>
-        </div>
-        <div class="bg-white rounded-2xl border border-border p-4 shadow-card">
-            <p class="text-[10px] font-bold uppercase text-muted tracking-wider">Aguardando análise</p>
-            <p class="text-2xl font-bold text-amber-600 mt-1">{{ $stats['pending_profiles'] + $stats['month_updates'] }}</p>
-            <p class="text-[10px] text-muted mt-0.5">{{ $stats['pending_profiles'] }} novos · {{ $stats['month_updates'] }} alterações</p>
-        </div>
-        <div class="bg-white rounded-2xl border border-border p-4 shadow-card">
-            <p class="text-[10px] font-bold uppercase text-muted tracking-wider">Pagtos pendentes</p>
-            <p class="text-2xl font-bold text-blue mt-1">{{ $stats['month_pending_payments'] }}</p>
-            <p class="text-[10px] text-muted mt-0.5">{{ $stats['pending_payments'] }} no total</p>
-        </div>
-        <div class="bg-white rounded-2xl border border-border p-4 shadow-card">
-            <p class="text-[10px] font-bold uppercase text-muted tracking-wider">Pago · {{ $monthLabel }}</p>
+            <p class="text-[10px] font-bold uppercase text-muted tracking-wider">Já pago · {{ $monthLabel }}</p>
             <p class="text-2xl font-bold text-ink mt-1">R$ {{ number_format($stats['month_paid'], 2, ',', '.') }}</p>
             <p class="text-[10px] text-muted mt-0.5">R$ {{ number_format($stats['total_paid'], 2, ',', '.') }} acumulado</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-border p-4 shadow-card">
+            <p class="text-[10px] font-bold uppercase text-muted tracking-wider">Pendências</p>
+            <p class="text-2xl font-bold {{ ($monthTotals['pendencias'] ?? 0) > 0 ? 'text-amber-600' : 'text-ink' }} mt-1">{{ $monthTotals['pendencias'] ?? 0 }}</p>
+            <p class="text-[10px] text-muted mt-0.5">{{ $stats['month_missing'] }} sem confirmar · {{ $stats['pending_profiles'] + $stats['month_updates'] }} p/ analisar</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-border p-4 shadow-card">
+            <p class="text-[10px] font-bold uppercase text-muted tracking-wider">Confirmaram o mês</p>
+            <p class="text-2xl font-bold text-ink mt-1">{{ $stats['month_confirmed'] }}<span class="text-base text-muted font-semibold">/{{ $stats['approved_profiles'] }}</span></p>
+            <p class="text-[10px] text-muted mt-0.5">cadastros aprovados</p>
         </div>
     </div>
 
