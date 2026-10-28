@@ -51,6 +51,13 @@
     <p class="text-sm text-slate-600 mb-6">Seus dados foram recebidos. O administrador irá analisar e aprovar seu cadastro PIX em breve.</p>
     @endif
 
+    <div class="rounded-2xl border-2 border-emerald-300 bg-emerald-50 px-4 py-4 mb-4">
+        <p class="text-[15px] font-bold text-emerald-900 leading-snug">
+            O sistema irá liberar o pagamento em até 24 horas.
+        </p>
+        <p class="text-sm text-emerald-800 mt-1">Obrigado!</p>
+    </div>
+
     <p class="text-xs text-slate-400">Você pode fechar esta página.</p>
 </div>
 </body>

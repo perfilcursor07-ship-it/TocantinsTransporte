@@ -27,9 +27,14 @@ class DriverPixRegistrationController extends Controller
             return view('driver-pix.invalid', ['reason' => 'Este link de cadastro expirou ou foi desativado. Peça um novo link ao administrador.']);
         }
 
+        // A competência vem do link: permite cobrar/confirmar um mês passado.
+        $competencia = $link->competencia();
+
         return view('driver-pix.register', [
             'link' => $link,
-            'currentMonth' => now()->format('Y-m'),
+            'currentMonth' => $competencia->format('Y-m'),
+            'currentMonthLabel' => DriverPixProfileMonth::labelFor($competencia),
+            'ehMesPassado' => $link->ehMesPassado(),
         ]);
     }
 
@@ -90,6 +95,8 @@ class DriverPixRegistrationController extends Controller
                     default => 'Cadastro em análise',
                 },
             ],
+            // Quanto o carro dele fez no mês e qual prêmio isso dá.
+            'carro' => $this->situacaoDoCarro($latestBus, $link->competencia()->format('Y-m')),
             'months' => $entries->map(fn ($entry) => [
                 'month' => $entry->reference_month->format('Y-m'),
                 'label' => $entry->monthLabel(),
@@ -120,8 +127,9 @@ class DriverPixRegistrationController extends Controller
             return back()->withErrors(['link' => 'Este link de cadastro não está mais disponível.']);
         }
 
-        // Competência = mês atual (o formulário não pergunta mais o mês ao motorista)
-        $monthStart = DriverPixProfileMonth::normalizeMonth(now()->format('Y-m'));
+        // Competência = mês do LINK. Um link gerado para setembro confirma
+        // setembro, mesmo sendo aberto em outubro. Link sem mês = mês corrente.
+        $monthStart = $link->competencia();
 
         $validated = $request->validate([
             'full_name' => 'required|string|min:3|max:120',
@@ -276,6 +284,60 @@ class DriverPixRegistrationController extends Controller
                 'needs_review' => ! $profile->isApproved() || $pixChanged,
                 'changed_fields' => array_keys($changedFields),
             ]);
+    }
+
+    /**
+     * Situação do carro no mês atual — receita e prêmio.
+     * Usado quando o motorista digita ou troca o número do carro.
+     */
+    public function busStatus(Request $request, string $token): JsonResponse
+    {
+        $link = DriverPixRegistrationLink::where('token', $token)->first();
+
+        if (! $link || ! $link->isUsable()) {
+            return response()->json(['found' => false], 422);
+        }
+
+        $validated = $request->validate([
+            'bus_number' => 'required|string|max:20',
+        ]);
+
+        $carro = $this->situacaoDoCarro($validated['bus_number'], $link->competencia()->format('Y-m'));
+
+        return response()->json([
+            'found' => (bool) $carro,
+            'carro' => $carro,
+        ]);
+    }
+
+    /** Monta o resumo do carro no mês corrente para exibir ao motorista. */
+    private function situacaoDoCarro(?string $numeroCarro, ?string $mes = null): ?array
+    {
+        $dados = \App\Services\DriverPrizeService::situacaoDoCarro($numeroCarro, $mes);
+
+        if (! $dados) {
+            return null;
+        }
+
+        return [
+            'carro' => $dados['carro'],
+            'receita' => $dados['receita'],
+            'receita_fmt' => 'R$ ' . number_format($dados['receita'], 2, ',', '.'),
+            'premio' => $dados['premio'],
+            'premio_fmt' => 'R$ ' . number_format($dados['premio'], 2, ',', '.'),
+            'motoristas' => $dados['motoristas'],
+            'premio_por_motorista' => $dados['premio_por_motorista'],
+            'premio_por_motorista_fmt' => 'R$ ' . number_format($dados['premio_por_motorista'], 2, ',', '.'),
+            'falta_fmt' => $dados['proxima_faixa']
+                ? 'R$ ' . number_format($dados['proxima_faixa']['falta'], 2, ',', '.')
+                : null,
+            'proximo_premio_fmt' => $dados['proxima_faixa']
+                ? 'R$ ' . number_format($dados['proxima_faixa']['premio'], 2, ',', '.')
+                : null,
+            'mes' => \App\Models\DriverPixProfileMonth::labelFor(
+                \App\Services\DriverPrizeService::mesValido($mes) . '-01'
+            ),
+        ];
     }
 
     public function success(string $token)

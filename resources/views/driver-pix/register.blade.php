@@ -13,7 +13,8 @@
 <body class="bg-gradient-to-br from-emerald-50 via-white to-slate-100 min-h-screen py-8 px-4">
 @php
     $hasOld = (bool) old('full_name');
-    $currentMonthLabel = \App\Models\DriverPixProfileMonth::labelFor(now());
+    $currentMonthLabel = $currentMonthLabel ?? \App\Models\DriverPixProfileMonth::labelFor(now());
+    $ehMesPassado = $ehMesPassado ?? false;
 @endphp
 <div class="w-full max-w-lg mx-auto">
     <div class="text-center mb-7">
@@ -25,6 +26,15 @@
             Confirme seus dados de <strong class="text-slate-700">{{ $currentMonthLabel }}</strong> para receber o pagamento
         </p>
     </div>
+
+    @if($ehMesPassado)
+    <div class="mb-5 p-4 rounded-2xl bg-amber-50 border border-amber-200">
+        <p class="text-sm font-bold text-amber-900">Este link é do mês de {{ $currentMonthLabel }}</p>
+        <p class="text-xs text-amber-800 mt-1">
+            Você está confirmando os dados daquele mês, não do mês atual. Informe o carro em que você estava em {{ $currentMonthLabel }}.
+        </p>
+    </div>
+    @endif
 
     @if($errors->any())
     <div class="mb-5 p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-sm space-y-1">
@@ -73,44 +83,73 @@
                     <p class="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Seus dados</p>
                     <span class="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">{{ $currentMonthLabel }}</span>
                 </div>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Nome completo <span class="text-red-500">*</span></label>
+                {{-- Campos lado a lado. Nome e CPF ficam travados quando o
+                     cadastro foi encontrado: o motorista só ajusta telefone e carro. --}}
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Nome completo <span class="text-red-500">*</span></label>
                         <input type="text" name="full_name" id="fullName" value="{{ old('full_name') }}" required placeholder="Seu nome completo"
-                               class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition uppercase">
+                               class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition uppercase">
                     </div>
                     <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">CPF <span class="text-red-500">*</span></label>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">CPF <span class="text-red-500">*</span></label>
                         <input type="text" name="cpf" id="cpf" inputmode="numeric" value="{{ old('cpf') }}" required placeholder="000.000.000-00"
-                               class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition">
-                        <p class="text-[11px] text-slate-400 mt-1.5">Serve para achar seu cadastro nos próximos meses.</p>
+                               class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition">
                     </div>
                     <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Telefone (WhatsApp) <span class="text-red-500">*</span></label>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Telefone (WhatsApp) <span class="text-red-500">*</span></label>
                         <input type="tel" name="phone" id="phone" value="{{ old('phone') }}" required placeholder="(63) 99999-9999"
-                               class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition">
+                               class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition">
                     </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Número do ônibus / carro <span class="text-red-500">*</span></label>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Número do ônibus / carro <span class="text-red-500">*</span></label>
                         <input type="text" name="bus_number" id="busNumber" value="{{ old('bus_number') }}" required placeholder="Ex: 5013"
-                               class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition uppercase font-semibold tracking-wide">
-                        <p class="text-[11px] text-slate-400 mt-1.5">Já vem do último cadastro, se houver. Mude se trocou de carro neste mês.</p>
+                               class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition uppercase font-semibold tracking-wide">
+                        <p class="text-[11px] text-slate-400 mt-1">Mude se trocou de carro neste mês.</p>
                     </div>
                 </div>
-            </div>
+
+                <p id="lockedHint" class="hidden text-[11px] text-slate-400 mt-2">
+                    Nome e CPF vêm do seu cadastro e não mudam aqui. Se estiver errado, fale com a administração.
+                </p>
+
+                {{-- Quanto o carro fez no mês e o prêmio que isso dá --}}
+                <div id="busPrizeBox" class="hidden mt-4 rounded-2xl border p-3.5">
+                    <p class="text-[10px] font-bold uppercase tracking-widest" id="busPrizeTitle"></p>
+                    <div class="flex items-end justify-between gap-3 mt-1.5">
+                        <div>
+                            <p class="text-[11px] text-slate-500">Este carro já fez</p>
+                            <p class="text-xl font-bold text-slate-800" id="busRevenue"></p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[11px] text-slate-500">Prêmio do carro</p>
+                            <p class="text-xl font-bold" id="busPrize"></p>
+                        </div>
+                    </div>
+                    <p class="text-[11px] mt-2 leading-relaxed" id="busPrizeNote"></p>
+                </div>
 
             <div class="px-6 py-5 mt-2 bg-slate-50/80 border-t border-slate-100">
                 <p class="text-[10px] font-bold uppercase tracking-widest text-emerald-600 mb-4">Chave PIX para receber</p>
 
-                <div id="keepPixBox" class="hidden mb-4 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3.5">
-                    <label class="flex items-start gap-3 cursor-pointer">
+                {{-- Chave já cadastrada: mostra e pede confirmação explícita. --}}
+                <div id="keepPixBox" class="hidden mb-4 rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-4">
+                    <p class="text-[11px] font-bold uppercase tracking-widest text-emerald-700">Sua chave cadastrada</p>
+                    <p class="text-lg font-bold text-slate-800 mt-1 break-all" id="keepPixValue"></p>
+                    <p class="text-[11px] text-slate-500 mt-0.5" id="keepPixInfo"></p>
+
+                    <label class="flex items-start gap-2.5 mt-3 cursor-pointer">
                         <input type="checkbox" id="keepPixCheckbox" checked
-                               class="mt-0.5 w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
-                        <span class="text-xs text-slate-700 leading-relaxed">
-                            <strong class="block text-slate-800 text-sm">Manter minha chave PIX atual</strong>
-                            <span id="keepPixInfo" class="text-slate-500"></span>
+                               class="mt-0.5 w-5 h-5 flex-shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                        <span class="text-sm font-semibold text-slate-800 leading-snug">
+                            Confirmo que o pagamento é para esta chave
                         </span>
                     </label>
+
+                    <button type="button" id="changePixBtn"
+                            class="mt-2 text-[12px] font-semibold text-slate-500 underline hover:text-slate-700">
+                        Trocar minha chave PIX
+                    </button>
                 </div>
 
                 <div id="pixFields" class="space-y-4">
@@ -161,6 +200,104 @@
     const pixFields = el('pixFields');
     const pixKey = el('pixKey');
     const pixKeyConfirmation = el('pixKeyConfirmation');
+
+    const busStatusUrl = @json(route('driver-pix.bus-status', $link->token));
+
+    /** Trava nome e CPF quando o cadastro já existe. */
+    function lockIdentity(lock) {
+        [el('fullName'), el('cpf')].forEach((campo) => {
+            if (!campo) return;
+            campo.readOnly = lock;
+            campo.classList.toggle('bg-slate-100', lock);
+            campo.classList.toggle('text-slate-500', lock);
+            campo.classList.toggle('cursor-not-allowed', lock);
+            campo.classList.toggle('bg-slate-50', !lock);
+        });
+        el('lockedHint')?.classList.toggle('hidden', !lock);
+    }
+
+    /** Mostra quanto o carro fez no mês e o prêmio que isso dá. */
+    function renderBusPrize(carro) {
+        const box = el('busPrizeBox');
+        if (!box) return;
+
+        if (!carro) {
+            box.classList.add('hidden');
+            return;
+        }
+
+        const premiado = Number(carro.premio) > 0;
+        box.className = 'mt-4 rounded-2xl border p-3.5 ' +
+            (premiado ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-slate-50');
+
+        el('busPrizeTitle').textContent = 'Carro ' + carro.carro + ' · ' + carro.mes;
+        el('busPrizeTitle').className = 'text-[10px] font-bold uppercase tracking-widest ' +
+            (premiado ? 'text-emerald-700' : 'text-slate-400');
+
+        el('busRevenue').textContent = carro.receita_fmt;
+        el('busPrize').textContent = carro.premio_fmt;
+        el('busPrize').className = 'text-xl font-bold ' + (premiado ? 'text-emerald-700' : 'text-slate-400');
+
+        let nota;
+        if (premiado && carro.motoristas > 1) {
+            nota = 'O prêmio é do carro e dividido entre os ' + carro.motoristas +
+                   ' motoristas cadastrados nele: <strong>' + carro.premio_por_motorista_fmt +
+                   '</strong> para cada um.';
+        } else if (premiado) {
+            nota = 'O prêmio é do carro. Se outro motorista também se cadastrar neste carro, o valor é dividido entre vocês.';
+        } else if (carro.falta_fmt) {
+            nota = 'Faltam <strong>' + carro.falta_fmt + '</strong> em vendas neste carro para alcançar o prêmio de ' +
+                   carro.proximo_premio_fmt + '.';
+        } else {
+            nota = 'Este carro ainda não atingiu nenhuma faixa de prêmio neste mês.';
+        }
+
+        nota += '<br><span class="text-slate-400">Valor parcial do mês — o fechamento é no fim do mês.</span>';
+        el('busPrizeNote').innerHTML = nota;
+        el('busPrizeNote').className = 'text-[11px] mt-2 leading-relaxed ' +
+            (premiado ? 'text-emerald-900' : 'text-slate-500');
+
+        box.classList.remove('hidden');
+    }
+
+    /** Consulta o carro digitado (usado quando o motorista troca de carro). */
+    async function fetchBusPrize(numero) {
+        const limpo = (numero || '').trim();
+        if (!limpo) { renderBusPrize(null); return; }
+
+        try {
+            const resp = await fetch(busStatusUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrf,
+                },
+                body: JSON.stringify({ bus_number: limpo }),
+            });
+            const data = await resp.json();
+            renderBusPrize(data?.carro || null);
+        } catch (e) {
+            renderBusPrize(null);
+        }
+    }
+
+    // Trocar a chave PIX: abre os campos de digitação.
+    document.addEventListener('DOMContentLoaded', function () {
+        el('changePixBtn')?.addEventListener('click', function () {
+            if (keepCheckbox) keepCheckbox.checked = false;
+            applyKeepState();
+            el('pixKey')?.focus();
+        });
+
+        // Trocou de carro: recalcula o prêmio daquele carro.
+        let tempo = null;
+        el('busNumber')?.addEventListener('input', function () {
+            clearTimeout(tempo);
+            const valor = this.value;
+            tempo = setTimeout(() => fetchBusPrize(valor), 600);
+        });
+    });
 
     function maskPhone(value) {
         let v = value.replace(/\D/g, '').slice(0, 11);
@@ -278,6 +415,8 @@
                 clearFormFields();
                 fillFromIdentifier(value);
                 history.classList.add('hidden');
+                lockIdentity(false);
+                renderBusPrize(null);
                 showFeedback(data.message || 'Não encontramos seu cadastro. Preencha os campos abaixo.', 'warn');
                 focusFirstEmpty();
                 return;
@@ -289,12 +428,15 @@
             el('phone').value = p.phone || '';
             el('busNumber').value = p.bus_number || '';
             fillFromIdentifier(value);
+            lockIdentity(true);
+            renderBusPrize(data.carro || null);
 
             if (p.has_pix_key) {
                 keepBox.classList.remove('hidden');
                 keepCheckbox.checked = true;
-                keepInfo.textContent = 'Chave ' + p.pix_key_type + ' · ' + p.pix_key_masked +
-                    '. Desmarque só se trocou de chave PIX.';
+                const valor = el('keepPixValue');
+                if (valor) valor.textContent = p.pix_key_masked || '';
+                keepInfo.textContent = 'Tipo: ' + (p.pix_key_type || 'chave');
             } else {
                 keepBox.classList.add('hidden');
                 keepCheckbox.checked = false;
@@ -325,6 +467,7 @@
             showForm();
             clearFormFields();
             fillFromIdentifier(value);
+            lockIdentity(false);
             showFeedback('Não foi possível consultar agora. Preencha o formulário manualmente.', 'error');
             focusFirstEmpty();
         } finally {

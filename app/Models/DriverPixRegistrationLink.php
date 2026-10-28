@@ -10,16 +10,40 @@ class DriverPixRegistrationLink extends Model
     protected $fillable = [
         'token',
         'label',
+        'reference_month',
         'is_active',
         'expires_at',
         'uses_count',
         'created_by',
     ];
 
+    /**
+     * Mês que este link coleta. Sem mês definido, vale o mês corrente —
+     * é o comportamento dos links antigos.
+     */
+    public function competencia(): \Illuminate\Support\Carbon
+    {
+        return $this->reference_month
+            ? $this->reference_month->copy()->startOfMonth()
+            : now()->startOfMonth();
+    }
+
+    public function competenciaLabel(): string
+    {
+        return DriverPixProfileMonth::labelFor($this->competencia());
+    }
+
+    /** O link aponta para um mês que já passou? */
+    public function ehMesPassado(): bool
+    {
+        return $this->competencia()->lt(now()->startOfMonth());
+    }
+
     protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
+            'reference_month' => 'date',
             'expires_at' => 'datetime',
             'uses_count' => 'integer',
         ];

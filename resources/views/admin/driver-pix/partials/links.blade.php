@@ -14,6 +14,15 @@
                         <input type="text" name="label" placeholder="Ex: Ônibus 5013 — março" class="w-full px-3 py-2.5 border border-border rounded-xl text-sm bg-surface focus:bg-white focus:border-green">
                     </div>
                     <div class="min-w-[200px]">
+                        <label class="block text-xs font-semibold text-muted mb-1">Competência (mês que o link coleta)</label>
+                        <select name="reference_month" class="w-full px-3 py-2.5 border border-border rounded-xl text-sm font-semibold bg-surface focus:bg-white focus:border-green">
+                            @foreach($monthOptions as $value => $label)
+                            <option value="{{ $value }}" @selected($month === $value)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        <p class="text-[11px] text-muted mt-1">Para pagar mês atrasado, escolha o mês passado.</p>
+                    </div>
+                    <div class="min-w-[200px]">
                         <label class="block text-xs font-semibold text-muted mb-1">Expira em (opcional)</label>
                         <input type="datetime-local" name="expires_at" class="w-full px-3 py-2.5 border border-border rounded-xl text-sm bg-surface focus:bg-white focus:border-green">
                     </div>
@@ -35,6 +44,9 @@
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-2">
                         <span class="font-semibold text-ink text-sm">{{ $link->label ?: 'Link sem nome' }}</span>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ $link->ehMesPassado() ? 'bg-amber-100 text-amber-800' : 'bg-blue-pale text-blue' }}">
+                            {{ $link->competenciaLabel() }}@unless($link->reference_month) (mês corrente)@endunless
+                        </span>
                         @if($link->isUsable())
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-pale text-green">Ativo</span>
                         @else

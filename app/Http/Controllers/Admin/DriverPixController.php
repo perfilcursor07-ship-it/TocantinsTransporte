@@ -50,9 +50,12 @@ class DriverPixController extends Controller
         $profiles = $board['cards']->pluck('profile');
         $statusFilter = $request->get('status');
 
+        // Quanto cada CARRO fez no mês e qual prêmio ele ganha.
+        $carros = \App\Services\DriverPrizeService::quadroDoMes($month);
+
         return view('admin.driver-pix.index', array_merge($board, compact(
             'tab', 'links', 'payments', 'stats', 'statusFilter', 'profiles',
-            'month', 'monthStart', 'monthLabel', 'monthOptions'
+            'month', 'monthStart', 'monthLabel', 'monthOptions', 'carros'
         )));
     }
 
@@ -300,17 +303,30 @@ class DriverPixController extends Controller
         $validated = $request->validate([
             'label' => 'nullable|string|max:80',
             'expires_at' => 'nullable|date|after:now',
+            'reference_month' => 'nullable|date_format:Y-m',
+        ], [
+            'reference_month.date_format' => 'Informe a competência no formato AAAA-MM.',
         ]);
+
+        // Mês que este link vai coletar. Sem escolha, vale o mês corrente.
+        $competencia = ! empty($validated['reference_month'])
+            ? DriverPixProfileMonth::normalizeMonth($validated['reference_month'])
+            : null;
 
         $link = DriverPixRegistrationLink::create([
             'token' => DriverPixRegistrationLink::generateToken(),
             'label' => $validated['label'] ?? null,
+            'reference_month' => $competencia,
             'is_active' => true,
             'expires_at' => $validated['expires_at'] ?? null,
             'created_by' => auth()->id(),
         ]);
 
-        return back()->with('success', 'Link gerado com sucesso!')->with('new_link_url', $link->publicUrl());
+        $aviso = $competencia
+            ? 'Link gerado para ' . DriverPixProfileMonth::labelFor($competencia) . '.'
+            : 'Link gerado para o mês corrente.';
+
+        return back()->with('success', $aviso)->with('new_link_url', $link->publicUrl());
     }
 
     public function toggleLink(DriverPixRegistrationLink $link)

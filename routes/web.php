@@ -85,6 +85,10 @@ Route::post('/motorista/pix/{token}', [DriverPixRegistrationController::class, '
 Route::post('/motorista/pix/{token}/consultar', [DriverPixRegistrationController::class, 'lookup'])
     ->middleware('throttle:12,1')
     ->name('driver-pix.lookup');
+// Receita e prêmio do carro no mês (mostrado ao motorista antes de confirmar)
+Route::post('/motorista/pix/{token}/carro', [DriverPixRegistrationController::class, 'busStatus'])
+    ->middleware('throttle:30,1')
+    ->name('driver-pix.bus-status');
 Route::get('/motorista/pix/{token}/enviado', [DriverPixRegistrationController::class, 'success'])->name('driver-pix.success');
 
 // Turismo: link de pagamento PIX enviado ao responsável pela viagem

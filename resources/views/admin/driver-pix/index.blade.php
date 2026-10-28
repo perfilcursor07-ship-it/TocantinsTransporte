@@ -63,7 +63,7 @@
 
     {{-- Tabs --}}
     <div class="flex gap-1 p-1 bg-surface rounded-2xl border border-border w-fit">
-        @foreach(['drivers' => 'Motoristas', 'links' => 'Links', 'payments' => 'Pagamentos'] as $key => $label)
+        @foreach(['drivers' => 'Motoristas', 'carros' => 'Carros e prêmios', 'links' => 'Links', 'payments' => 'Pagamentos'] as $key => $label)
         <a href="{{ route('admin.driver-pix.index', ['tab' => $key, 'month' => $month]) }}"
            class="px-5 py-2.5 text-sm font-semibold rounded-xl transition-all {{ $tab === $key ? 'bg-white text-green shadow-card border border-border' : 'text-muted hover:text-ink' }}">
             {{ $label }}
@@ -77,7 +77,9 @@
         @endforeach
     </div>
 
-    @if($tab === 'links')
+    @if($tab === 'carros')
+    @include('admin.driver-pix.partials.carros', ['carros' => $carros])
+    @elseif($tab === 'links')
     @include('admin.driver-pix.partials.links', ['links' => $links])
     @elseif($tab === 'payments')
     @include('admin.driver-pix.partials.payments', ['payments' => $payments])
