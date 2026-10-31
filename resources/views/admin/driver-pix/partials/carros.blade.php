@@ -25,7 +25,7 @@
     {{-- Resumo do mês --}}
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div class="bg-white rounded-2xl border border-border p-4 shadow-card">
-            <p class="text-[10px] font-bold uppercase text-muted tracking-wider">Receita · {{ $monthLabel }}</p>
+            <p class="text-[10px] font-bold uppercase text-muted tracking-wider">Receita · {{ $ganhosLabel }}</p>
             <p class="text-2xl font-bold text-ink mt-1">R$ {{ number_format($totais['receita'], 2, ',', '.') }}</p>
             <p class="text-[10px] text-muted mt-0.5">{{ $totais['pagamentos'] }} pagamentos</p>
         </div>
@@ -67,8 +67,8 @@
     <div class="bg-white rounded-2xl border border-border shadow-card overflow-hidden">
         <div class="px-5 py-4 border-b border-border flex items-center justify-between flex-wrap gap-2">
             <div>
-                <h3 class="font-bold text-ink">Quanto cada carro fez em {{ $monthLabel }}</h3>
-                <p class="text-xs text-muted mt-0.5">O prêmio é do carro e dividido entre os motoristas dele.</p>
+                <h3 class="font-bold text-ink">Quanto cada carro fez em {{ $ganhosLabel }}</h3>
+                <p class="text-xs text-muted mt-0.5">Pago na competência {{ $monthLabel }}. O prêmio é do carro e dividido entre os motoristas dele.</p>
             </div>
         </div>
 

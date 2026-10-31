@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Bus;
+use App\Models\DriverPixProfileMonth;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -68,15 +69,52 @@ class DriverPrizeService
     }
 
     /**
+     * Mês da receita que banca o prêmio de uma competência.
+     *
+     * O pagamento sai no mês seguinte ao mês trabalhado: a competência de
+     * Outubro paga os ganhos de Setembro. Então o prêmio sempre olha a receita
+     * do mês ANTERIOR à competência.
+     */
+    public static function mesDaReceita(?string $mes): string
+    {
+        return self::primeiroDia($mes)->subMonthNoOverflow()->format('Y-m');
+    }
+
+    /** Rótulo pronto para a tela: "Outubro de 2026 · ganhos de Setembro". */
+    public static function rotuloCompetencia(?string $mes): string
+    {
+        $receita = self::primeiroDia(self::mesDaReceita($mes));
+
+        return DriverPixProfileMonth::labelFor(self::primeiroDia($mes))
+            . ' · ganhos de ' . DriverPixProfileMonth::MONTH_NAMES[$receita->month];
+    }
+
+    /**
+     * "2026-09" => 01/09/2026.
+     *
+     * Carbon::createFromFormat('Y-m', ...) completa o dia com o dia de HOJE:
+     * em 31/10 isso virava 31/09, que não existe, e transbordava para outubro.
+     * normalizeMonth monta a data pelo ano/mês, sem dia nenhum envolvido.
+     */
+    private static function primeiroDia(?string $mes): Carbon
+    {
+        return DriverPixProfileMonth::normalizeMonth(self::mesValido($mes));
+    }
+
+    /**
      * Receita do mês agrupada pelo MikroTik (serial) do ônibus.
      * Retorna [serial => ['receita' => float, 'pagamentos' => int]].
      */
     public static function receitaPorSerial(string $mes): array
     {
+        $inicio = self::primeiroDia($mes);
+
         $linhas = DB::table('payments')
             ->join('users', 'users.id', '=', 'payments.user_id')
             ->where('payments.status', 'completed')
-            ->whereRaw('DATE_FORMAT(payments.paid_at, "%Y-%m") = ?', [$mes])
+            // Intervalo em vez de DATE_FORMAT: aproveita índice e não é só MySQL.
+            ->where('payments.paid_at', '>=', $inicio)
+            ->where('payments.paid_at', '<', $inicio->copy()->addMonthNoOverflow())
             ->whereNotNull('users.last_mikrotik_id')
             ->groupBy('users.last_mikrotik_id')
             ->selectRaw('users.last_mikrotik_id as serial, COUNT(*) as pagamentos, SUM(payments.amount) as receita')
@@ -111,24 +149,19 @@ class DriverPrizeService
     /** Motoristas por número de carro: [bus_number => qtd]. */
     public static function motoristasPorCarro(string $mes): array
     {
-        // Quem confirmou o mês conta primeiro; sem confirmação, o cadastro base.
-        $doMes = DB::table('driver_pix_profile_months')
-            ->join('driver_pix_profiles', 'driver_pix_profiles.id', '=', 'driver_pix_profile_months.driver_pix_profile_id')
-            ->where('driver_pix_profile_months.reference_month', $mes)
+        // reference_month é DATE: comparar com "2026-10" nunca casa. Tem de ser
+        // o primeiro dia do mês, senão o resultado vem vazio e o prêmio acaba
+        // dividido por todos os motoristas já cadastrados no carro.
+        $inicio = self::primeiroDia($mes);
+
+        // Só os aprovados: são exatamente os que podem receber, então o divisor
+        // bate com o número de pagamentos que vão sair.
+        return DB::table('driver_pix_profile_months')
+            ->where('driver_pix_profile_months.reference_month', $inicio->toDateString())
+            ->where('driver_pix_profile_months.status', 'approved')
             ->whereNotNull('driver_pix_profile_months.bus_number')
             ->groupBy('driver_pix_profile_months.bus_number')
-            ->selectRaw('driver_pix_profile_months.bus_number as carro, COUNT(DISTINCT driver_pix_profiles.id) as qtd')
-            ->pluck('qtd', 'carro')
-            ->toArray();
-
-        if ($doMes) {
-            return $doMes;
-        }
-
-        return DB::table('driver_pix_profiles')
-            ->whereNotNull('bus_number')
-            ->groupBy('bus_number')
-            ->selectRaw('bus_number as carro, COUNT(*) as qtd')
+            ->selectRaw('driver_pix_profile_months.bus_number as carro, COUNT(DISTINCT driver_pix_profile_months.driver_pix_profile_id) as qtd')
             ->pluck('qtd', 'carro')
             ->toArray();
     }
@@ -140,7 +173,8 @@ class DriverPrizeService
     public static function quadroDoMes(?string $mes = null): Collection
     {
         $mes = self::mesValido($mes);
-        $receitas = self::receitaPorSerial($mes);
+        // Receita do mês trabalhado (anterior); motoristas da competência.
+        $receitas = self::receitaPorSerial(self::mesDaReceita($mes));
         $motoristas = self::motoristasPorCarro($mes);
 
         return Bus::orderBy('name')->get()->map(function (Bus $bus) use ($receitas, $motoristas) {

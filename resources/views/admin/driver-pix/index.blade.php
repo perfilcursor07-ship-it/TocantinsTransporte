@@ -36,6 +36,7 @@
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div class="bg-white rounded-2xl border-2 border-green/30 p-4 shadow-card">
             <p class="text-[10px] font-bold uppercase text-green-dark tracking-wider">A pagar · {{ $monthLabel }}</p>
+            <p class="text-[10px] text-muted">ganhos de {{ $ganhosLabel }}</p>
             <p class="text-2xl font-bold text-green-dark mt-1">R$ {{ number_format($monthTotals['a_pagar'] ?? 0, 2, ',', '.') }}</p>
             <p class="text-[10px] text-muted mt-0.5">{{ $monthTotals['a_pagar_qtd'] ?? 0 }} motorista(s) confirmado(s)</p>
         </div>

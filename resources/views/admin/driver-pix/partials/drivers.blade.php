@@ -60,7 +60,7 @@
     <div class="px-5 py-4 bg-green-pale/50 border-b border-green/20 flex items-center justify-between gap-4 flex-wrap">
       <div>
         <h3 class="text-base font-bold text-green-dark">1 · A pagar em {{ $monthLabel }}</h3>
-        <p class="text-xs text-muted mt-0.5">Motoristas que confirmaram o mês e o carro ganhou prêmio.</p>
+        <p class="text-xs text-muted mt-0.5">Prêmio sobre a receita de {{ $ganhosLabel }}. Motoristas que confirmaram o mês e o carro ganhou prêmio.</p>
       </div>
       <div class="text-right">
         <p class="text-2xl font-bold text-green-dark">R$ {{ number_format($monthTotals['a_pagar'], 2, ',', '.') }}</p>

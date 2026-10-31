@@ -32,6 +32,13 @@ class DriverPixController extends Controller
         $monthLabel = DriverPixProfileMonth::labelFor($monthStart);
         $monthOptions = $this->monthOptions($monthStart);
 
+        // A competência paga o mês trabalhado ANTERIOR: a receita e o prêmio da
+        // tela de Outubro vêm de Setembro. Rotular evita ler um pelo outro.
+        $ganhosMes = \App\Services\DriverPrizeService::mesDaReceita($month);
+        $ganhosLabel = DriverPixProfileMonth::labelFor(
+            DriverPixProfileMonth::normalizeMonth($ganhosMes)
+        );
+
         $links = DriverPixRegistrationLink::with('creator')
             ->withCount('profiles')
             ->orderByDesc('created_at')
@@ -56,7 +63,8 @@ class DriverPixController extends Controller
 
         return view('admin.driver-pix.index', array_merge($board, compact(
             'tab', 'links', 'payments', 'stats', 'statusFilter', 'profiles',
-            'month', 'monthStart', 'monthLabel', 'monthOptions', 'carros'
+            'month', 'monthStart', 'monthLabel', 'monthOptions', 'carros',
+            'ganhosMes', 'ganhosLabel'
         )));
     }
 

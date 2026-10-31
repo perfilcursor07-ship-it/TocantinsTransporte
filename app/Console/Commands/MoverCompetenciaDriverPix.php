@@ -22,6 +22,7 @@ class MoverCompetenciaDriverPix extends Command
                             {para : Competência de destino, no formato AAAA-MM}
                             {--link=* : Restringe aos cadastros vindos destes IDs de link}
                             {--pular-conflitos : Em vez de abortar, deixa parado o que colide no destino}
+                            {--forcar-ciclo-pago : Permite escrever num destino que já tem pagamento registrado}
                             {--aplicar : Grava as alterações (sem isto, apenas simula)}';
 
     protected $description = 'Move competência (mês) dos cadastros e pagamentos de motorista';
@@ -78,6 +79,26 @@ class MoverCompetenciaDriverPix extends Command
                 . 'Nada foi alterado.'
             );
             $this->line('Resolva no painel, ou rode de novo com --pular-conflitos para mover só o restante.');
+
+            return self::FAILURE;
+        }
+
+        // Um ciclo já pago é história fechada: misturar cadastros novos dentro
+        // dele faz um mês representar dois pagamentos diferentes.
+        $pagosNoDestino = DB::table('driver_pix_payments')
+            ->whereDate('reference_month', $this->para)
+            ->whereIn('status', ['pending', 'paid'])
+            ->count();
+
+        if ($pagosNoDestino > 0 && ! $this->option('forcar-ciclo-pago')) {
+            $this->newLine();
+            $this->error(sprintf(
+                '%s já tem %d pagamento(s) registrado(s) — é um ciclo fechado. Nada foi alterado.',
+                DriverPixProfileMonth::labelFor($this->para),
+                $pagosNoDestino
+            ));
+            $this->line('Mover cadastros para dentro dele faria a competência representar dois pagamentos.');
+            $this->line('Se for realmente isso que você quer, repita com --forcar-ciclo-pago.');
 
             return self::FAILURE;
         }
