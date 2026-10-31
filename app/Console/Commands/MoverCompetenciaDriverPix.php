@@ -33,6 +33,9 @@ class MoverCompetenciaDriverPix extends Command
     /** @var array<int> */
     private array $links = [];
 
+    /** Cadastros que já ocupam o destino, por "perfil|ônibus". */
+    private \Illuminate\Support\Collection $ocupados;
+
     public function handle(): int
     {
         if (! $this->lerArgumentos()) {
@@ -157,15 +160,14 @@ class MoverCompetenciaDriverPix extends Command
      */
     private function separarConflitos($entries): array
     {
-        $ocupados = DriverPixProfileMonth::query()
+        $this->ocupados = DriverPixProfileMonth::query()
             ->whereDate('reference_month', $this->para)
             ->whereIn('driver_pix_profile_id', $entries->pluck('driver_pix_profile_id')->unique())
             ->get()
-            ->map(fn ($e) => $e->driver_pix_profile_id . '|' . $e->bus_number)
-            ->flip();
+            ->keyBy(fn ($e) => $e->driver_pix_profile_id . '|' . $e->bus_number);
 
         return $entries->partition(
-            fn ($entry) => ! $ocupados->has($entry->driver_pix_profile_id . '|' . $entry->bus_number)
+            fn ($entry) => ! $this->ocupados->has($entry->driver_pix_profile_id . '|' . $entry->bus_number)
         )->all();
     }
 
@@ -192,12 +194,16 @@ class MoverCompetenciaDriverPix extends Command
             $this->line('<options=bold;fg=yellow>Conflitos no destino (mesmo motorista + ônibus já existe)</>');
 
             foreach ($conflitos as $entry) {
+                $destino = $this->ocupados->get($entry->driver_pix_profile_id . '|' . $entry->bus_number);
+
+                $this->newLine();
                 $this->line(sprintf(
-                    '  #%-5d ônibus %-6s %s',
-                    $entry->id,
-                    $entry->bus_number,
-                    $entry->profile?->full_name
+                    '  <options=bold>%s</> — ônibus %s',
+                    $entry->profile?->full_name,
+                    $entry->bus_number
                 ));
+                $this->line('    origem  ' . $this->descreverEntrada($entry));
+                $this->line('    destino ' . $this->descreverEntrada($destino));
             }
         }
 
@@ -219,6 +225,24 @@ class MoverCompetenciaDriverPix extends Command
         foreach ($linksAlvo as $link) {
             $this->line(sprintf('  #%-4d %s', $link->id, $link->label ?: 'sem rótulo'));
         }
+    }
+
+    /** Linha compacta para comparar os dois lados de um conflito. */
+    private function descreverEntrada(?DriverPixProfileMonth $entry): string
+    {
+        if (! $entry) {
+            return '(não encontrado)';
+        }
+
+        return sprintf(
+            '#%-5d %-9s enviado %-16s pix %-14s origem %-7s link %s',
+            $entry->id,
+            $entry->status,
+            $entry->submitted_at?->format('d/m/Y H:i') ?? '—',
+            $entry->pix_key ? mb_substr($entry->pix_key, 0, 4) . '…' . mb_substr($entry->pix_key, -3) : '—',
+            $entry->source,
+            $entry->registration_link_id ?? '—'
+        );
     }
 
     private function gravar($mover, $payments, $linksAlvo): void
