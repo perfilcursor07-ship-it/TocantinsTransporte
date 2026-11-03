@@ -393,18 +393,29 @@ class PaymentController extends Controller
             // Este é o ponto em que o ônibus é conhecido com certeza (pelo IP
             // público). Congela no pagamento para o relatório do mês não mudar
             // de dono depois, quando o passageiro viajar em outro carro.
-            // Isolado em try/catch: o pagamento já foi comitado acima e não pode
-            // falhar por causa de um dado de relatório.
+            //
+            // Roda em terminating(), ou seja DEPOIS que a resposta já foi
+            // entregue ao usuário. Entre o DB::commit() acima e o return de
+            // sucesso existe um catch que responderia erro: se este código
+            // estivesse ali e falhasse, o usuário veria erro mesmo com o QR Code
+            // pronto. Daqui, nada que aconteça aqui alcança a resposta.
+            // O try/catch (e o do log) são a segunda camada.
             if ($mikrotikId) {
-                try {
-                    $payment->forceFill(['bus_mikrotik_id' => $mikrotikId])->saveQuietly();
-                } catch (\Throwable $e) {
-                    Log::warning('Não foi possível congelar o ônibus do pagamento', [
-                        'payment_id' => $payment->id,
-                        'mikrotik_id' => $mikrotikId,
-                        'erro' => $e->getMessage(),
-                    ]);
-                }
+                app()->terminating(function () use ($payment, $mikrotikId) {
+                    try {
+                        $payment->forceFill(['bus_mikrotik_id' => $mikrotikId])->saveQuietly();
+                    } catch (\Throwable $e) {
+                        try {
+                            Log::warning('Não foi possível congelar o ônibus do pagamento', [
+                                'payment_id' => $payment->id,
+                                'mikrotik_id' => $mikrotikId,
+                                'erro' => $e->getMessage(),
+                            ]);
+                        } catch (\Throwable) {
+                            // Nem falha de log pode escapar daqui.
+                        }
+                    }
+                });
             }
 
             // 🎯 LOG COMPLETO DO PAGAMENTO CRIADO

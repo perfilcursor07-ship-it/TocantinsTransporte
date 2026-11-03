@@ -59,10 +59,14 @@ class Payment extends Model
                 $payment->bus_mikrotik_id = User::whereKey($payment->user_id)
                     ->value('last_mikrotik_id');
             } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning(
-                    'Não foi possível congelar o ônibus do pagamento (segue sem isso)',
-                    ['user_id' => $payment->user_id, 'erro' => $e->getMessage()]
-                );
+                try {
+                    \Illuminate\Support\Facades\Log::warning(
+                        'Não foi possível congelar o ônibus do pagamento (segue sem isso)',
+                        ['user_id' => $payment->user_id, 'erro' => $e->getMessage()]
+                    );
+                } catch (\Throwable) {
+                    // Nem falha de log pode impedir o pagamento de nascer.
+                }
             }
         });
     }
