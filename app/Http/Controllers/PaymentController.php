@@ -390,6 +390,23 @@ class PaymentController extends Controller
                 ]);
             }
 
+            // Este é o ponto em que o ônibus é conhecido com certeza (pelo IP
+            // público). Congela no pagamento para o relatório do mês não mudar
+            // de dono depois, quando o passageiro viajar em outro carro.
+            // Isolado em try/catch: o pagamento já foi comitado acima e não pode
+            // falhar por causa de um dado de relatório.
+            if ($mikrotikId) {
+                try {
+                    $payment->forceFill(['bus_mikrotik_id' => $mikrotikId])->saveQuietly();
+                } catch (\Throwable $e) {
+                    Log::warning('Não foi possível congelar o ônibus do pagamento', [
+                        'payment_id' => $payment->id,
+                        'mikrotik_id' => $mikrotikId,
+                        'erro' => $e->getMessage(),
+                    ]);
+                }
+            }
+
             // 🎯 LOG COMPLETO DO PAGAMENTO CRIADO
             Log::info('💳 PAGAMENTO PIX CRIADO COM SUCESSO', [
                 'payment_id' => $payment->id,

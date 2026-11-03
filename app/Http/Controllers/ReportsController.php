@@ -91,13 +91,7 @@ class ReportsController extends Controller
         // Helper: aplica filtro de ônibus a uma query de Payment
         $applyBus = function ($query) use ($busFilter) {
             if ($busFilter !== 'all') {
-                $query->where(function ($q) use ($busFilter) {
-                    $q->where('payment_data->transferred_mikrotik_id', $busFilter)
-                        ->orWhere(function ($q) use ($busFilter) {
-                            $q->whereNull('payment_data->transferred_mikrotik_id')
-                                ->whereHas('user', fn($userQuery) => $userQuery->where('last_mikrotik_id', $busFilter));
-                        });
-                });
+                $query->doOnibus($busFilter);
             }
             return $query;
         };
@@ -162,13 +156,7 @@ class ReportsController extends Controller
         }
 
         if ($busFilter !== 'all') {
-            $query->where(function ($q) use ($busFilter) {
-                $q->where('payment_data->transferred_mikrotik_id', $busFilter)
-                    ->orWhere(function ($q) use ($busFilter) {
-                        $q->whereNull('payment_data->transferred_mikrotik_id')
-                            ->whereHas('user', fn($userQuery) => $userQuery->where('last_mikrotik_id', $busFilter));
-                    });
-            });
+            $query->doOnibus($busFilter);
         }
         
         return $query->orderBy('created_at', 'desc')

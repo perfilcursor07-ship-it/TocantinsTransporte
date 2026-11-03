@@ -109,15 +109,19 @@ class DriverPrizeService
     {
         $inicio = self::primeiroDia($mes);
 
+        // Mesmo critério de atribuição do relatório, senão o prêmio e a tela de
+        // receita mostram números diferentes para o mesmo mês.
+        $onibus = BusRevenueService::busIdExpression('');
+
         $linhas = DB::table('payments')
             ->join('users', 'users.id', '=', 'payments.user_id')
             ->where('payments.status', 'completed')
             // Intervalo em vez de DATE_FORMAT: aproveita índice e não é só MySQL.
             ->where('payments.paid_at', '>=', $inicio)
             ->where('payments.paid_at', '<', $inicio->copy()->addMonthNoOverflow())
-            ->whereNotNull('users.last_mikrotik_id')
-            ->groupBy('users.last_mikrotik_id')
-            ->selectRaw('users.last_mikrotik_id as serial, COUNT(*) as pagamentos, SUM(payments.amount) as receita')
+            ->whereRaw("{$onibus} IS NOT NULL")
+            ->groupByRaw($onibus)
+            ->selectRaw("{$onibus} as serial, COUNT(*) as pagamentos, SUM(payments.amount) as receita")
             ->get();
 
         $saida = [];
