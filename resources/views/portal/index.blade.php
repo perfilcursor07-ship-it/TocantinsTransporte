@@ -1212,8 +1212,15 @@
 
                 <div class="p-5">
                     <div id="recovery-form-area">
+                        <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-3 text-left">
+                            <p class="text-xs text-blue-800">
+                                <strong>Tente primeiro:</strong> nas configurações do Wi-Fi, esqueça a rede
+                                <strong>TocantinsTransporteWiFi</strong> e conecte de novo.
+                            </p>
+                        </div>
+
                         <p class="text-sm text-gray-600 mb-4 text-center">
-                            Informe o telefone que você usou para pagar. Vamos liberar seu acesso automaticamente.
+                            Não voltou? Informe o telefone que você usou para pagar.
                         </p>
 
                         <input type="tel" id="recovery-phone" placeholder="(63) 9 8101-3050" maxlength="16"
@@ -1240,12 +1247,17 @@
                         <p class="text-sm text-gray-600 mb-4" id="recovery-success-msg">Sua internet será liberada em até 30 segundos.</p>
                         
                         <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-left">
-                            <p class="text-xs font-bold text-blue-800 mb-2">Se ainda não funcionar, faça isso:</p>
+                            <p class="text-xs font-bold text-blue-800 mb-2">Se ainda não funcionar:</p>
                             <ol class="text-xs text-blue-700 space-y-1 list-decimal list-inside">
-                                <li>Desconecte do WiFi</li>
-                                <li>Desligue o WiFi do celular</li>
-                                <li>Ligue o WiFi de novo e reconecte</li>
+                                <li>Abra as configurações de Wi-Fi</li>
+                                <li>Toque em <strong>TocantinsTransporteWiFi</strong> e escolha <strong>Esquecer</strong></li>
+                                <li>Conecte de novo na rede</li>
                             </ol>
+                            <p class="text-xs text-blue-700 mt-2 pt-2 border-t border-blue-200">
+                                <strong>Para não acontecer de novo:</strong> nas opções dessa rede, deixe o
+                                <em>Endereço Privado</em> como <strong>Fixo</strong> ou desativado (iPhone), ou escolha
+                                <strong>usar o MAC do aparelho</strong> (Android).
+                            </p>
                         </div>
 
                         <button onclick="closeRecoveryModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl text-sm shadow-md">

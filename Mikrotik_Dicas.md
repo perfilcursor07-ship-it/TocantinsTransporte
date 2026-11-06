@@ -27,3 +27,8 @@ Outros Mikrotik verificar esse comando
 /ip service set www port=8081
 /ip hotspot profile set [find name=hsprof-tocantins] dns-name=login.wifi
 /ip dhcp-server network print detail where address=10.5.50.0/24
+
+
+PARA MIKROTIKS NOVOS, PARA IR PARA CAPTIVE PORTAL
+/ip dns static remove [find where address=127.0.0.1]
+/ip service set www port=8081

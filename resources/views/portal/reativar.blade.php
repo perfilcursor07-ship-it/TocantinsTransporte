@@ -57,7 +57,11 @@
             <div class="p-5">
                 <div class="bg-amber-50 rounded-lg p-3 mb-4">
                     <p class="text-xs text-amber-700">
-                        Se você pagou mas não consegue navegar, informe o telefone que usou no cadastro para reativar o acesso.
+                        <strong>Tente primeiro:</strong> nas configurações do Wi-Fi, esqueça a rede
+                        <strong>TocantinsTransporteWiFi</strong> e conecte de novo.
+                    </p>
+                    <p class="text-xs text-amber-700 mt-2">
+                        Não voltou? Informe o telefone que você usou para pagar.
                     </p>
                 </div>
 
@@ -88,13 +92,17 @@
 
                 <!-- Dicas (aparecem após resultado) -->
                 <div id="reactivate-tips" class="hidden mt-4 bg-blue-50 rounded-xl p-4 border border-blue-100">
-                    <p class="text-xs font-bold text-blue-800 mb-2">Dicas se ainda não funcionar:</p>
+                    <p class="text-xs font-bold text-blue-800 mb-2">Se ainda não funcionar:</p>
                     <ol class="text-xs text-blue-700 space-y-1.5">
-                        <li><strong>1.</strong> Desconecte e reconecte o WiFi</li>
-                        <li><strong>2.</strong> Desative e ative o WiFi do celular</li>
-                        <li><strong>3.</strong> <strong>iPhone:</strong> Ajustes &gt; WiFi &gt; (i) ao lado da rede &gt; Desative "Endereço Privado WiFi" e reconecte</li>
-                        <li><strong>4.</strong> Feche e abra o navegador</li>
+                        <li><strong>1.</strong> Abra as configurações de Wi-Fi</li>
+                        <li><strong>2.</strong> Toque em <strong>TocantinsTransporteWiFi</strong> e escolha <strong>Esquecer</strong></li>
+                        <li><strong>3.</strong> Conecte de novo na rede</li>
                     </ol>
+                    <p class="text-xs text-blue-700 mt-2 pt-2 border-t border-blue-100">
+                        <strong>Para não acontecer de novo:</strong> nas opções dessa rede, deixe o
+                        <em>Endereço Privado</em> como <strong>Fixo</strong> ou desativado (iPhone), ou escolha
+                        <strong>usar o MAC do aparelho</strong> (Android).
+                    </p>
                 </div>
             </div>
         </div>
