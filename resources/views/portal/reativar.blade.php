@@ -57,11 +57,7 @@
             <div class="p-5">
                 <div class="bg-amber-50 rounded-lg p-3 mb-4">
                     <p class="text-xs text-amber-700">
-                        <strong>Tente primeiro:</strong> nas configurações do Wi-Fi, esqueça a rede
-                        <strong>TocantinsTransporteWiFi</strong> e conecte de novo.
-                    </p>
-                    <p class="text-xs text-amber-700 mt-2">
-                        Não voltou? Informe o telefone que você usou para pagar.
+                        Se você pagou mas não consegue navegar, informe o telefone que você usou para pagar. Vamos liberar seu acesso automaticamente.
                     </p>
                 </div>
 
@@ -97,11 +93,13 @@
                         <li><strong>1.</strong> Abra as configurações de Wi-Fi</li>
                         <li><strong>2.</strong> Toque em <strong>TocantinsTransporteWiFi</strong> e escolha <strong>Esquecer</strong></li>
                         <li><strong>3.</strong> Conecte de novo na rede</li>
+                        <li><strong>4.</strong> Se a internet não voltar, informe o telefone de novo acima</li>
                     </ol>
                     <p class="text-xs text-blue-700 mt-2 pt-2 border-t border-blue-100">
-                        <strong>Para não acontecer de novo:</strong> nas opções dessa rede, deixe o
-                        <em>Endereço Privado</em> como <strong>Fixo</strong> ou desativado (iPhone), ou escolha
-                        <strong>usar o MAC do aparelho</strong> (Android).
+                        <strong>Para não acontecer de novo:</strong> na próxima viagem, <strong>antes de pagar</strong>,
+                        deixe o <em>Endereço Privado</em> dessa rede como <strong>Fixo</strong> ou desativado (iPhone),
+                        ou escolha <strong>usar o MAC do aparelho</strong> (Android).
+                        Não mude agora: o celular troca de MAC e a internet cai de novo.
                     </p>
                 </div>
             </div>

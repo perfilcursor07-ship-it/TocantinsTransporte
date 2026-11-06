@@ -308,6 +308,23 @@
                     </div>
                 </div>
 
+            {{-- Ana mandou o botão de recuperação por telefone --}}
+            @elseif($msgType === 'recovery_request')
+                <div class="flex justify-center chat-message-enter">
+                    <div class="max-w-md w-full bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-4 shadow-sm">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-9 h-9 rounded-lg bg-amber-500 flex items-center justify-center text-white text-xl shadow">🔄</div>
+                            <div class="flex-1">
+                                <p class="text-[10px] font-bold text-amber-800 uppercase tracking-wider">Recuperação de acesso</p>
+                                <p class="text-sm font-bold text-amber-900">Ana enviou o botão "Recuperar acesso"</p>
+                            </div>
+                            <p class="text-[10px] text-gray-500">{{ $message->created_at->format('H:i') }}</p>
+                        </div>
+                        <p class="text-sm text-gray-700 whitespace-pre-line">{{ $message->message }}</p>
+                        <p class="text-[10px] text-gray-400 mt-2 italic">O passageiro informa o telefone e o aparelho atual é religado — inclusive com MAC novo</p>
+                    </div>
+                </div>
+
             {{-- Ana pediu MAC --}}
             @elseif($msgType === 'mac_request')
                 <div class="flex justify-center chat-message-enter">

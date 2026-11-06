@@ -583,6 +583,8 @@
             renderReceiptUpload(msg.metadata, time);
         } else if (msg.type === 'mac_request') {
             renderMacRequest(msg.message, adminName, time, msg.id);
+        } else if (msg.type === 'recovery_request') {
+            renderRecoveryRequest(msg.message, adminName, time, msg.metadata);
         } else if (msg.type === 'mac_upload' && msg.metadata && msg.metadata.mac_url) {
             renderMacUpload(msg.metadata, time);
         } else if (msg.type === 'mac_text' && msg.metadata && msg.metadata.mac_address) {
@@ -716,6 +718,44 @@
             </div>
         `;
         appendChatNode(div);
+    }
+
+    function renderRecoveryRequest(text, adminName, time, meta) {
+        const div = document.createElement('div');
+        div.className = 'flex justify-start chat-message-enter';
+        div.innerHTML = `
+            <div class="max-w-[92%] w-full bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-3 shadow-sm">
+                <div class="flex items-center gap-2 mb-2">
+                    <div class="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center text-white text-base shadow">🔄</div>
+                    <div class="flex-1">
+                        <p class="text-[10px] font-bold text-amber-800 uppercase tracking-wider">Reativar acesso</p>
+                        <p class="text-[9px] text-gray-500">${adminName} · ${time}</p>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-700 mb-2 leading-snug chat-msg-body">${formatChatText(text)}</p>
+                <button type="button"
+                        class="recovery-open-btn w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-center py-2.5 rounded-lg font-bold text-xs transition">
+                    🔄 Recuperar acesso
+                </button>
+                <p class="text-[9px] text-gray-500 mt-1.5 text-center">Informe o telefone que você usou para pagar</p>
+            </div>
+        `;
+        appendChatNode(div);
+
+        const fallbackUrl = (meta && meta.recovery_url) || '/reativar';
+        div.querySelector('.recovery-open-btn').addEventListener('click', () => openRecoveryFromChat(fallbackUrl));
+    }
+
+    // No portal abre a janela "Recuperar acesso" da própria página; fora dele, a /reativar.
+    // A janela fica numa camada abaixo do chat (z-55 x z-9999), então fecha o chat antes,
+    // senão ela abriria escondida atrás dele.
+    function openRecoveryFromChat(fallbackUrl) {
+        if (typeof window.openRecoveryModal === 'function' && document.getElementById('recovery-modal')) {
+            if (chatOpen) window.toggleChatWidget();
+            window.openRecoveryModal();
+            return;
+        }
+        window.location.href = fallbackUrl;
     }
 
     function renderMacRequest(text, adminName, time, msgId) {

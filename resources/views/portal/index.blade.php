@@ -1212,15 +1212,8 @@
 
                 <div class="p-5">
                     <div id="recovery-form-area">
-                        <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-3 text-left">
-                            <p class="text-xs text-blue-800">
-                                <strong>Tente primeiro:</strong> nas configurações do Wi-Fi, esqueça a rede
-                                <strong>TocantinsTransporteWiFi</strong> e conecte de novo.
-                            </p>
-                        </div>
-
                         <p class="text-sm text-gray-600 mb-4 text-center">
-                            Não voltou? Informe o telefone que você usou para pagar.
+                            Informe o telefone que você usou para pagar. Vamos liberar seu acesso automaticamente.
                         </p>
 
                         <input type="tel" id="recovery-phone" placeholder="(63) 9 8101-3050" maxlength="16"
@@ -1252,11 +1245,13 @@
                                 <li>Abra as configurações de Wi-Fi</li>
                                 <li>Toque em <strong>TocantinsTransporteWiFi</strong> e escolha <strong>Esquecer</strong></li>
                                 <li>Conecte de novo na rede</li>
+                                <li>Se a internet não voltar, recupere com o telefone de novo</li>
                             </ol>
                             <p class="text-xs text-blue-700 mt-2 pt-2 border-t border-blue-200">
-                                <strong>Para não acontecer de novo:</strong> nas opções dessa rede, deixe o
-                                <em>Endereço Privado</em> como <strong>Fixo</strong> ou desativado (iPhone), ou escolha
-                                <strong>usar o MAC do aparelho</strong> (Android).
+                                <strong>Para não acontecer de novo:</strong> na próxima viagem, <strong>antes de pagar</strong>,
+                                deixe o <em>Endereço Privado</em> dessa rede como <strong>Fixo</strong> ou desativado (iPhone),
+                                ou escolha <strong>usar o MAC do aparelho</strong> (Android).
+                                Não mude agora: o celular troca de MAC e a internet cai de novo.
                             </p>
                         </div>
 

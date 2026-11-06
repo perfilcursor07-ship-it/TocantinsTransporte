@@ -112,6 +112,16 @@ class ChatAIService
                 return $this->executeAction($conv, $paymentDecision);
             }
 
+            // Pagou e está no prazo: o primeiro passo é a recuperação por telefone, que
+            // reconhece o aparelho atual (inclusive com MAC novo) e religa sozinha.
+            // Só depois, se não resolver, entra a investigação de aparelho/MAC.
+            if ($this->shouldOfferRecovery($conv)) {
+                return $this->executeAction($conv, [
+                    'action' => 'request_recovery',
+                    'message' => $this->recoveryOfferMessage($conv),
+                ]);
+            }
+
             // Respondeu iOS/iPhone/Android → pede o MAC na hora (não escala, não chama a API)
             if ($this->shouldRequestMacAfterDeviceAnswer($conv)) {
                 $device = $this->visitorDeviceFromHistory($conv) ?? 'both';
@@ -469,8 +479,11 @@ Sua missão é RESOLVER o problema do cliente, não escalar de cara. Antes de es
 Usuário pagou e tá ativo, mas reclama de internet. PROBLEMA TÉCNICO.
 
 **Fluxo:**
-1. **Confirma o status e pergunta o aparelho:**
-   "Oi {$conv->visitor_name}! Vi aqui que seu pagamento tá ativo. Pra te ajudar, me fala: você está usando iOS (iPhone) ou Android?"
+1. **Botão de recuperação (o sistema manda sozinho):** quando o passageiro reclama de internet, o sistema já envia o botão "Recuperar acesso". Ele informa o telefone e o aparelho atual é religado, mesmo que o MAC tenha mudado. Você NUNCA envia esse botão nem escreve link pra ele.
+   - Se ele só cumprimentou (ex.: "oi"), diga que o pagamento está ativo e pergunte o que está acontecendo com a internet. NÃO pergunte o aparelho ainda.
+   - Se ele disser que deu certo: comemore e encerre.
+   - Se disser que usou a recuperação e não resolveu, pergunte o aparelho:
+   "Entendi. Pra te ajudar no passo certo, me fala: você está usando iOS (iPhone) ou Android?"
 
 2. **Quando ele responder iOS / iPhone / Android:** use **request_mac** na hora (passo a passo pra achar o MAC daquele aparelho + botão de foto). NUNCA escalate nesse turno. NUNCA peça só pra desativar endereço privado e parar.
    O sistema confere sozinho o MAC recebido (foto ou digitado) com o MAC liberado. Se for o mesmo, ele já manda o passo a passo do DNS privado; se for diferente, passa pro humano.
@@ -769,6 +782,7 @@ PROMPT;
             'request_probe' => $this->actionProbe($conv, $text),
             'request_receipt' => $this->actionRequestReceipt($conv, $text),
             'request_mac' => $this->actionRequestMac($conv, $text),
+            'request_recovery' => $this->actionRequestRecovery($conv, $text),
             'escalate' => $this->actionEscalate($conv, $text, $decision['reason'] ?? null),
             default => $this->actionReply($conv, $text),
         };
@@ -937,6 +951,44 @@ PROMPT;
         ]);
 
         Log::info('🤖 IA pediu comprovante PIX', ['conversation_id' => $conv->id]);
+        return $msg;
+    }
+
+    /**
+     * Abre no chat o cartão com o botão "Recuperar acesso": o visitante informa o
+     * telefone e o sistema religa o aparelho atual — inclusive quando o MAC mudou,
+     * porque a recuperação troca o MAC do cadastro antes de responder.
+     */
+    private function actionRequestRecovery(ChatConversation $conv, string $text): ChatMessage
+    {
+        if (!$this->visitorHasValidPayment($conv)) {
+            return $this->actionReply($conv, $this->noActivePaymentMessage($conv));
+        }
+
+        $msg = ChatMessage::create([
+            'conversation_id' => $conv->id,
+            'sender_type' => 'admin',
+            'admin_id' => null,
+            'type' => 'recovery_request',
+            'message' => $text,
+            'metadata' => [
+                'ai' => true,
+                'ai_name' => 'Ana',
+                'model' => config('services.together.model'),
+                // Fora do portal (sem a janela de recuperação na página) o botão abre esta.
+                'recovery_url' => '/reativar',
+            ],
+            'is_read' => true,
+        ]);
+
+        $conv->update([
+            'last_message_at' => now(),
+            'status' => 'active',
+        ]);
+
+        Log::info('🤖 IA enviou o botão de recuperação por telefone', [
+            'conversation_id' => $conv->id,
+        ]);
         return $msg;
     }
 
@@ -1918,6 +1970,71 @@ PROMPT;
             '/\b(atendente|humano|pessoa\s*real|falar\s*com\s*(alguém|alguem|atendente)|quero\s*atendente)\b/u',
             $normalized
         );
+    }
+
+    /**
+     * Pagou, está no prazo e reclama de acesso → manda o botão de recuperação antes de
+     * investigar aparelho/MAC. Uma vez por conversa, e nunca no meio do fluxo do MAC:
+     * conversa que já estava nele segue como antes.
+     */
+    private function shouldOfferRecovery(ChatConversation $conv): bool
+    {
+        if (!$this->visitorHasValidPayment($conv)) {
+            return false;
+        }
+
+        if ($this->alreadyOfferedRecovery($conv)) {
+            return false;
+        }
+
+        if ($this->visitorAskedForHuman($conv) || $this->visitorReportsResolved($conv)) {
+            return false;
+        }
+
+        if ($this->alreadyAskedDevice($conv) || $this->alreadyRequestedMac($conv) || $this->alreadyCollectedMac($conv)) {
+            return false;
+        }
+
+        return $this->visitorClaimsPaid($conv)
+            || $this->visitorSaysStepsFailed($conv)
+            || $this->visitorReportsAccessIssue($conv);
+    }
+
+    private function alreadyOfferedRecovery(ChatConversation $conv): bool
+    {
+        return ChatMessage::where('conversation_id', $conv->id)
+            ->where('type', 'recovery_request')
+            ->where('created_at', '>=', now()->subHours(6))
+            ->exists();
+    }
+
+    /** Última mensagem fala de internet/conexão (ex.: "não tá conectando", "sem internet"). */
+    private function visitorReportsAccessIssue(ChatConversation $conv): bool
+    {
+        $last = mb_strtolower((string) $this->lastVisitorMessage($conv));
+
+        return (bool) preg_match(
+            '/\b(internet|wifi|wi-fi|acesso|conect|naveg|rede|liber|sinal|funciona)/u',
+            $last
+        );
+    }
+
+    private function recoveryOfferMessage(ChatConversation $conv): string
+    {
+        $context = $this->paymentContext($conv);
+        $expiresAt = $context['active_access']
+            ? $context['user']?->expires_at
+            : $context['payment_expires_at'];
+
+        $name = trim((string) $conv->visitor_name);
+        $greeting = $name !== '' ? "Oi {$name}! " : 'Oi! ';
+        $validity = $expiresAt
+            ? ', com acesso válido até ' . $expiresAt->format('d/m') . ' às ' . $expiresAt->format('H:i')
+            : '';
+
+        return $greeting . "Vi aqui que seu pagamento está ativo{$validity}.\n\n"
+            . 'Para reativar seu acesso, toque no botão abaixo e informe o telefone que você usou para pagar. '
+            . 'A liberação acontece em até 30 segundos.';
     }
 
     /**
