@@ -22,7 +22,8 @@ use Illuminate\Console\Command;
 class TestarCashCash extends Command
 {
     protected $signature = 'cashcash:testar
-                            {--cpf= : CPF para testar também o envio e o link (inicia análise real em produção)}';
+                            {--cpf= : CPF para testar também o envio e o link (inicia análise real em produção)}
+                            {--mostrar-link : Mostra o link completo para abrir no celular (uso único, vale 5 min)}';
 
     protected $description = 'Testa a integração Cash Cash: configuração, token, envio e link';
 
@@ -59,7 +60,7 @@ class TestarCashCash extends Command
         if ($cpf === '') {
             $this->newLine();
             $this->line('   Login OK. Para testar também o envio e o link: --cpf=SEUCPF');
-            $this->newLine();
+            $this->verificarAppDaCashCash();
 
             return self::SUCCESS;
         }
@@ -103,12 +104,87 @@ class TestarCashCash extends Command
         $this->line('   link leva para ..: ' . ($destino['scheme'] ?? '?') . '://' . ($destino['host'] ?? '?') . ($destino['path'] ?? ''));
         $this->line('   link vale até ...: ' . $envio['expires_at']);
 
+        if ($this->option('mostrar-link')) {
+            // Só com a opção explícita: o link dá acesso à análise daquele CPF.
+            $this->newLine();
+            $this->line('   <fg=yellow>Link completo — abra no celular AGORA (uso único, vale 5 minutos).</>');
+            $this->line('   <fg=yellow>Não compartilhe: ele abre a análise deste CPF.</>');
+            $this->line('   ' . $envio['url']);
+        }
+
         $this->newLine();
         $this->line('<options=bold>3. Redirecionamento</>');
         $this->line('   O servidor está pronto. Falta testar num ônibus, ANTES de pagar: se o app');
         $this->line('   não abrir, o domínio acima precisa entrar no walled garden dos MikroTiks.');
-        $this->newLine();
+
+        $this->verificarAppDaCashCash();
 
         return self::SUCCESS;
+    }
+
+    /**
+     * O lado da Cash Cash: depois que recebe o link, o app de produção abre a
+     * avaliação chamando a API DELE. Descobre qual é, lendo o código público do
+     * app (o mesmo que o navegador baixa), e confere se ela existe e responde.
+     */
+    private function verificarAppDaCashCash(): void
+    {
+        $this->newLine();
+        $this->line('<options=bold>4. App da Cash Cash (o lado deles)</>');
+
+        $app = rtrim((string) config('services.cashcash.app_url'), '/');
+        $this->line('   app .............: ' . ($app ?: '<fg=red>(CASHCASH_APP_URL vazio)</>'));
+        if (!$app) {
+            $this->newLine();
+
+            return;
+        }
+
+        try {
+            $html = \Illuminate\Support\Facades\Http::timeout(15)->get($app . '/')->body();
+            if (!preg_match('#/assets/index-[A-Za-z0-9_-]+\.js#', $html, $arquivo)) {
+                $this->line('   <fg=yellow>? não achei o código do app para conferir</>');
+                $this->newLine();
+
+                return;
+            }
+
+            $js = \Illuminate\Support\Facades\Http::timeout(30)->get($app . $arquivo[0])->body();
+            if (!preg_match('#baseURL:"(https?://[^"]+)"#', $js, $base)) {
+                $this->line('   <fg=yellow>? não achei no app o endereço da API dele</>');
+                $this->newLine();
+
+                return;
+            }
+        } catch (\Throwable $e) {
+            $this->line('   <fg=red>✗ não consegui baixar o app: ' . $e->getMessage() . '</>');
+            $this->newLine();
+
+            return;
+        }
+
+        $api = rtrim($base[1], '/');
+        $host = (string) parse_url($api, PHP_URL_HOST);
+        $this->line('   API que o app usa: ' . $api);
+
+        $dns = @dns_get_record($host, DNS_A + DNS_AAAA + DNS_CNAME) ?: [];
+        if (!$dns) {
+            $this->line('   <fg=red>✗ esse domínio NÃO EXISTE no DNS</>');
+            $this->newLine();
+            $this->line('   O app recebe o link, mas não consegue abrir a avaliação: mostra');
+            $this->line('   "Sem conexão" para qualquer pessoa, em qualquer rede. É com a Cash Cash.');
+            $this->newLine();
+
+            return;
+        }
+
+        try {
+            $status = \Illuminate\Support\Facades\Http::timeout(10)->get($api . '/')->status();
+            $this->line('   <fg=green>✓ a API existe e respondeu (HTTP ' . $status . ')</>');
+            $this->line('   O app consegue abrir a avaliação. Se der erro no ônibus, é o walled garden.');
+        } catch (\Throwable $e) {
+            $this->line('   <fg=red>✗ a API existe no DNS mas não respondeu</>');
+        }
+        $this->newLine();
     }
 }
