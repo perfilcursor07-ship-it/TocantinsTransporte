@@ -29,3 +29,6 @@ composer.phar
 testar_scope_santander.sh
 testar_scope_santander_simples.php
 COMO_TESTAR_SCOPE.md
+
+# Servidor de teste temporário do Claude Code (criado e apagado durante a sessão)
+/.claude/launch.json
