@@ -22,6 +22,9 @@ class CashCashService
 {
     private const TOKEN_CACHE_KEY = 'cashcash:access_token';
 
+    /** Resultado do último pedido de token — só para diagnóstico (cashcash:testar). */
+    private array $ultimoToken = [];
+
     public function isEnabled(): bool
     {
         return (bool) config('services.cashcash.enabled')
@@ -51,7 +54,7 @@ class CashCashService
     }
 
     /** Raiz da API: a do cadastro ativo; sem cadastro, a do .env. */
-    private function apiUrl(): string
+    public function apiUrl(): string
     {
         return rtrim((string) ($this->sponsor()?->cfg('base_url') ?: config('services.cashcash.api_url')), '/');
     }
@@ -97,6 +100,13 @@ class CashCashService
                 'client_secret' => config('services.cashcash.client_secret'),
             ]);
 
+        $this->ultimoToken = [
+            'http_status' => $response->status(),
+            'code' => $response->json('code'),
+            'message' => $response->json('message'),
+            'expires_in' => $response->json('expires_in'),
+        ];
+
         if (!$response->successful()) {
             // Log sem corpo: a resposta de erro pode ecoar credencial.
             Log::warning('🏦 Cash Cash: falha ao obter token', [
@@ -120,6 +130,23 @@ class CashCashService
         Cache::put($this->tokenCacheKey(), $token, $ttl);
 
         return $token;
+    }
+
+    /**
+     * Pede um token novo (ignora o cache) e diz se a Cash Cash aceitou o login.
+     * Nunca devolve o token: só o código HTTP e o motivo, para diagnóstico.
+     */
+    public function testarToken(): array
+    {
+        $this->ultimoToken = [];
+
+        try {
+            $ok = (bool) $this->accessToken(true);
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'http_status' => 0, 'code' => 'NETWORK_ERROR', 'message' => $e->getMessage()];
+        }
+
+        return ['ok' => $ok] + $this->ultimoToken + ['http_status' => 0, 'code' => null, 'message' => null, 'expires_in' => null];
     }
 
     // ---------- Envio ----------
