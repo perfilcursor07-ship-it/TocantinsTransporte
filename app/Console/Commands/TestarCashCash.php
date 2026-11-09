@@ -29,6 +29,17 @@ class TestarCashCash extends Command
 
     public function handle(CashCashService $cashCash): int
     {
+        // --cpf com texto em vez de número (ex.: --cpf=SEUCPF) não pode virar
+        // "sem CPF" calado: avisa antes de gastar um pedido de token.
+        $cpfInformado = $this->option('cpf');
+        if ($cpfInformado !== null && preg_replace('/\D/', '', $cpfInformado) === '') {
+            $this->newLine();
+            $this->error("--cpf={$cpfInformado} não tem número de CPF. Use os 11 dígitos, ex.: --cpf=12345678909");
+            $this->newLine();
+
+            return self::FAILURE;
+        }
+
         $this->newLine();
         $this->line('<options=bold>0. Configuração que o portal está usando</>');
         $secret = (string) config('services.cashcash.client_secret');
