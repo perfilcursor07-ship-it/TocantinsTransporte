@@ -222,7 +222,9 @@
                         (termina em <code>/leads</code>). Os caminhos do token e da sessão são automáticos —
                         os campos acima são ignorados. Variáveis: <code>CASHCASH_CLIENT_ID</code> e
                         <code>CASHCASH_CLIENT_SECRET</code>.
-                        Em <strong>Modal</strong>, a proposta abre dentro do portal, sem o passageiro sair.
+                        Use <strong>Redirect</strong>: o guia v1.0 da Cash Cash diz que o app deles
+                        <strong>recusa ser embutido</strong>. Só escolha Modal se eles confirmarem por escrito
+                        que liberaram.
                     </p>
                 </div>
 
