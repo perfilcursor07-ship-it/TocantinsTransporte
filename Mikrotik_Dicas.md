@@ -32,3 +32,8 @@ Outros Mikrotik verificar esse comando
 PARA MIKROTIKS NOVOS, PARA IR PARA CAPTIVE PORTAL
 /ip dns static remove [find where address=127.0.0.1]
 /ip service set www port=8081
+
+LIBERAR CASH CASH
+/ip hotspot walled-garden add dst-host=cashcash.com.br comment="Cash Cash"
+/ip hotspot walled-garden add dst-host=*.cashcash.com.br comment="Cash Cash"
+/ip hotspot walled-garden ip add action=accept dst-host=*.cashcash.com.br comment="Cash Cash"
