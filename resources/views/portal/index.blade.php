@@ -839,6 +839,43 @@
         </div>
     </div>
 
+    <!-- Proposta aberta numa ABA à parte (cadastro do parceiro em "Nova aba").
+         Sem contagem: o desconto já foi garantido na tela da oferta. -->
+    <div id="discount-opened-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] hidden">
+        <div class="flex items-center justify-center h-full p-4">
+            <div class="bg-white rounded-2xl w-full max-w-sm animate-slide-up shadow-2xl overflow-hidden">
+                <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-5 py-4 text-center">
+                    <p class="text-white font-extrabold text-base">Proposta aberta em outra aba</p>
+                    <p class="text-purple-100 text-xs mt-1">Este portal continua aqui, esperando você</p>
+                </div>
+
+                <div class="p-5">
+                    <div class="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-4 text-center">
+                        <p class="text-[15px] font-extrabold text-emerald-800">
+                            ✓ Seu desconto de R$ {{ number_format($video_discount_amount ?? 1, 2, ',', '.') }} já está garantido
+                        </p>
+                    </div>
+
+                    <p class="text-[13px] text-gray-600 leading-snug mt-3 text-center">
+                        Veja a proposta com calma na outra aba e volte aqui quando quiser pagar.
+                    </p>
+
+                    <div id="discount-opened-error" class="hidden mt-3 bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 rounded-lg text-xs"></div>
+
+                    <button onclick="claimDiscountWithoutData()"
+                        class="mt-4 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl shadow-md text-sm transition-all active:scale-[0.98]">
+                        Continuar para o pagamento
+                    </button>
+
+                    <button id="discount-opened-reopen" onclick="reopenDiscountOffer({ botao: 'discount-opened-reopen', erro: 'discount-opened-error' })"
+                        class="mt-2 w-full text-[13px] font-semibold text-purple-700 hover:text-purple-900 py-2 underline">
+                        Não abriu? Abrir a proposta de novo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Proposta do parceiro aberta DENTRO do portal (cadastro do parceiro em "Modal") -->
     <div id="discount-frame-modal" class="fixed inset-0 bg-black/70 z-[75] hidden">
         <div class="flex flex-col h-full w-full max-w-lg mx-auto bg-white sm:my-4 sm:h-[calc(100%-2rem)] sm:rounded-2xl overflow-hidden shadow-2xl">
@@ -886,7 +923,7 @@
         function show(id) { el(id)?.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
         function hide(id) { el(id)?.classList.add('hidden'); }
         function hideAll() {
-            ['discount-choice-modal', 'discount-consent-modal', 'discount-waiting-modal', 'discount-frame-modal'].forEach(hide);
+            ['discount-choice-modal', 'discount-consent-modal', 'discount-waiting-modal', 'discount-frame-modal', 'discount-opened-modal'].forEach(hide);
             document.body.style.overflow = 'auto';
         }
 
@@ -1063,14 +1100,13 @@
                 return fail(data?.message || 'Não conseguimos carregar a proposta agora.');
             }
 
-            // Cadastro do parceiro em "Nova aba": a proposta abre na janela à
-            // parte e o portal fica aqui, esperando para aplicar o desconto.
-            if (data.open_in === 'popup' && janela) {
-                lead = { lead_id: data.lead_id };
-                if (abrirNaJanela(janela, data.url, data.min_seconds)) {
-                    if (button) { button.disabled = false; button.textContent = 'Quero receber a proposta'; }
-                    return;
-                }
+            // Cadastro do parceiro em "Nova aba": a proposta abre na aba à parte
+            // e o portal fica aqui. O desconto continua sendo o da tela da oferta
+            // (lead da exposição) — informar CPF não muda o desconto.
+            if (data.open_in === 'popup' && janela && abrirNaJanela(janela, data.url)) {
+                propostaLead = { lead_id: data.lead_id };   // só para "abrir de novo"
+                if (button) { button.disabled = false; button.textContent = 'Quero receber a proposta'; }
+                return;
             }
             descartarJanela(janela);    // sem janela (bloqueada): segue pela mesma aba
 
@@ -1093,13 +1129,16 @@
          * então o servidor gera um handoff novo.
          */
         window.reopenDiscountOffer = async function(opcoes) {
-            if (!lead) return;
+            // No modo "Nova aba" a proposta tem lead próprio; o `lead` é o da exposição.
+            const alvo = propostaLead || lead;
+            if (!alvo) return;
             // forceRedirect: a página do parceiro não abriu embutida, então vai em tela cheia.
             const forceRedirect = !!(opcoes && opcoes.forceRedirect);
             // Modo "Nova aba": a janela nasce no clique do "Abrir a proposta".
             const janela = forceRedirect ? null : prepararJanela();
-            const botao = el('discount-reopen-btn');
-            const box = el('discount-waiting-error');
+            const botao = el((opcoes && opcoes.botao) || 'discount-reopen-btn');
+            const box = el((opcoes && opcoes.erro) || 'discount-waiting-error');
+            const textoBotao = botao ? botao.textContent : '';
             if (botao) { botao.disabled = true; botao.textContent = 'Abrindo...'; }
 
             try {
@@ -1110,18 +1149,18 @@
                         'Accept': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
                     },
-                    body: JSON.stringify({ lead_id: lead.lead_id }),
+                    body: JSON.stringify({ lead_id: alvo.lead_id }),
                 });
                 const data = await response.json();
 
                 if (data?.success && data.url) {
-                    if (data.open_in === 'popup' && janela && abrirNaJanela(janela, data.url, data.min_seconds)) {
-                        if (botao) { botao.disabled = false; botao.textContent = 'Abrir a proposta'; }
+                    if (data.open_in === 'popup' && janela && abrirNaJanela(janela, data.url)) {
+                        if (botao) { botao.disabled = false; botao.textContent = textoBotao; }
                         return;
                     }
                     descartarJanela(janela);
                     if (data.open_in === 'iframe' && !forceRedirect) {
-                        if (botao) { botao.disabled = false; botao.textContent = 'Abrir a proposta'; }
+                        if (botao) { botao.disabled = false; botao.textContent = textoBotao; }
                         openDiscountFrame(data.url, data.min_seconds);
                         return;
                     }
@@ -1141,22 +1180,20 @@
                 }
             }
 
-            if (botao) { botao.disabled = false; botao.textContent = 'Abrir a proposta'; }
+            if (botao) { botao.disabled = false; botao.textContent = textoBotao; }
         };
 
-        // ---------- Proposta numa JANELA à parte (cadastro em "Nova aba") ----------
+        // ---------- Proposta numa ABA à parte (cadastro em "Nova aba") ----------
         // O app da Cash Cash não deixa ser embutido (X-Frame-Options: DENY), mas
-        // abre normalmente numa janela própria. O portal fica aberto por trás e,
-        // quando a janela fecha ou o passageiro volta para cá, o servidor confere
-        // o tempo (tryConfirm) e o desconto é aplicado sem recarregar a página.
+        // abre normalmente numa aba própria. O desconto NÃO depende dessa aba: a
+        // tela da oferta já o garantiu ("informar CPF não muda o seu desconto").
+        // Por isso aqui não há contagem nova — só o aviso de que a proposta abriu
+        // e o caminho para pagar, pela mesma regra do "sem CPF".
 
-        let popup = null;
-        let popupTick = null;
-        let popupAbertoEm = 0;
-        let popupMinimo = 0;
+        let propostaLead = null;   // lead da proposta (com CPF), para "abrir de novo"
 
         /**
-         * A janela tem de nascer no próprio clique: aberta depois de um await, o
+         * A aba tem de nascer no próprio clique: aberta depois de um await, o
          * navegador a trata como propaganda e bloqueia. Por isso abre vazia agora
          * e recebe o endereço quando o servidor responder. Devolve null se o
          * modo não for "Nova aba" ou se o navegador bloquear — aí o fluxo segue
@@ -1174,7 +1211,7 @@
                 janela.document.title = 'Carregando sua proposta...';
                 janela.document.body.innerHTML =
                     '<p style="font-family:sans-serif;text-align:center;margin-top:40vh;color:#555">Carregando sua proposta…</p>';
-            } catch (e) { /* janela já em outro endereço: segue */ }
+            } catch (e) { /* aba já em outro endereço: segue */ }
 
             return janela;
         }
@@ -1183,71 +1220,15 @@
             try { if (janela && !janela.closed) janela.close(); } catch (e) {}
         }
 
-        /** Leva a janela até a proposta e passa a acompanhar o retorno. */
-        function abrirNaJanela(janela, url, minSeconds) {
+        /** Leva a aba até a proposta e mostra no portal o aviso de que ela abriu. */
+        function abrirNaJanela(janela, url) {
             try { janela.location.replace(url); } catch (e) { return false; }   // a url nunca é logada
 
-            popup = janela;
-            popupAbertoEm = Date.now();
-            popupMinimo = minSeconds || MIN_SECONDS;
-
             hideAll();
-            const subtitulo = el('discount-waiting-subtitle');
-            if (subtitulo) subtitulo.textContent = 'Numa aba nova, aqui do lado';
-            const hint = el('discount-waiting-hint');
-            if (hint) hint.textContent = 'Veja a proposta na outra aba. Quando terminar, feche a aba e volte aqui: o desconto é liberado na hora.';
-            renderWaiting(popupMinimo);
-            show('discount-waiting-modal');
-
-            clearInterval(popupTick);
-            popupTick = setInterval(function () {
-                renderWaiting(faltaNaJanela());
-                if (popup && popup.closed) {
-                    pararDeAcompanhar();
-                    conferirRetornoDaJanela();
-                }
-            }, 1000);
-
+            el('discount-opened-error')?.classList.add('hidden');
+            show('discount-opened-modal');
             return true;
         }
-
-        // Conta pelo relógio, não pelos ticks: com o portal em segundo plano, o
-        // navegador desacelera os timers dessa aba.
-        function faltaNaJanela() {
-            return Math.max(0, Math.ceil(popupMinimo - (Date.now() - popupAbertoEm) / 1000));
-        }
-
-        function pararDeAcompanhar() {
-            clearInterval(popupTick);
-            popupTick = null;
-            popup = null;
-        }
-
-        async function conferirRetornoDaJanela() {
-            const data = await tryConfirm();
-            if (data?.granted) {
-                hideAll();
-                ganhouDesconto(data);
-                return;
-            }
-
-            renderWaiting(data?.remaining_seconds);
-            const subtitulo = el('discount-waiting-subtitle');
-            if (subtitulo) subtitulo.textContent = 'Você fechou antes do tempo';
-            const hint = el('discount-waiting-hint');
-            if (hint) hint.textContent = 'Abra a proposta de novo e fique até o fim da contagem para liberar o desconto.';
-            show('discount-waiting-modal');
-        }
-
-        // Voltou para a aba do portal sem fechar a da proposta: se o tempo já
-        // passou, fecha a outra aba e libera o desconto.
-        document.addEventListener('visibilitychange', function () {
-            if (document.hidden || !popup || faltaNaJanela() > 0) return;
-            const aberta = popup;
-            pararDeAcompanhar();
-            descartarJanela(aberta);
-            conferirRetornoDaJanela();
-        });
 
         // ---------- Proposta aberta DENTRO do portal (cadastro em "Modal") ----------
         // Quem decide se o desconto sai continua sendo o servidor, no tryConfirm():
