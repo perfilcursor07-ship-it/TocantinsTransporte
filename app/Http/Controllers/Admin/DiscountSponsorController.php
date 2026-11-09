@@ -111,7 +111,7 @@ class DiscountSponsorController extends Controller
             'token_path' => 'nullable|string|max:120',
             'session_path' => 'nullable|string|max:120',
             'style' => 'nullable|in:standard,cashcash',
-            'open_in' => 'nullable|in:redirect,iframe',
+            'open_in' => 'nullable|in:redirect,popup,iframe',
             'requires_location' => 'nullable|in:0,1',
             'client_id_env' => 'nullable|string|max:80',
             'client_secret_env' => 'nullable|string|max:80',

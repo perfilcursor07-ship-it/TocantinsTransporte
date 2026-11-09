@@ -60,12 +60,17 @@ class CashCashService
     }
 
     /**
-     * 'iframe' mostra a proposta dentro do portal; 'redirect' (padrão) leva o
-     * passageiro até o app do parceiro e ele volta sozinho.
+     * Como o portal mostra a proposta:
+     *  - 'redirect' (padrão): a mesma aba vai para o app do parceiro;
+     *  - 'popup': o app abre numa janela/aba à parte e o portal fica aberto
+     *     por trás, aplicando o desconto quando ela fecha;
+     *  - 'iframe': dentro do portal — a Cash Cash bloqueia (X-Frame-Options: DENY).
      */
     public function openIn(): string
     {
-        return $this->sponsor()?->cfg('open_in') === 'iframe' ? 'iframe' : 'redirect';
+        $modo = $this->sponsor()?->cfg('open_in');
+
+        return in_array($modo, ['popup', 'iframe'], true) ? $modo : 'redirect';
     }
 
     /**

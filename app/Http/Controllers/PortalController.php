@@ -124,6 +124,9 @@ class PortalController extends Controller
                 && app(\App\Services\CashCashService::class)->isEnabled(),
             'video_discount_amount' => \App\Helpers\SettingsHelper::getVideoDiscountAmount(),
             'cashcash_min_seconds' => \App\Helpers\SettingsHelper::getCashCashMinSeconds(),
+            // Como a proposta abre (cadastro em /admin/parceiros). O portal precisa
+            // saber ANTES do clique: janela nova só é permitida no próprio clique.
+            'discount_open_in' => app(\App\Services\CashCashService::class)->openIn(),
             // Desconto já ganho antes de um refresh — restaura sem refazer a proposta.
             'discount_already_granted' => (bool) $grantedDiscount,
             'discount_already_granted_amount' => (float) ($grantedDiscount->discount_amount ?? 0),

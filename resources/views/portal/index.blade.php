@@ -872,6 +872,7 @@
     (function() {
         const DISCOUNT_AMOUNT = {{ $video_discount_amount ?? 1 }};
         const MIN_SECONDS = {{ $cashcash_min_seconds ?? 20 }};
+        const OPEN_IN = @json($discount_open_in ?? 'redirect');
 
         let decided = false;              // já pulou ou já ganhou o desconto
         let pendingConnectAction = null;  // callback original do fluxo de pagamento
@@ -1002,8 +1003,10 @@
             const button = el('discount-consent-submit');
             const cpf = (el('discount-cpf')?.value || '').replace(/\D/g, '');
             const phone = (el('discount-phone')?.value || '').replace(/\D/g, '');
+            let janela = null;
 
             function fail(message) {
+                descartarJanela(janela);
                 if (errorBox) { errorBox.textContent = message; errorBox.classList.remove('hidden'); }
                 if (button) { button.disabled = false; button.textContent = 'Quero receber a proposta'; }
             }
@@ -1011,6 +1014,9 @@
             if (phone.length < 10 || phone.length > 11) return fail('Digite o telefone com DDD.');
             if (cpf.length !== 11) return fail('Digite os 11 números do CPF.');
             if (!el('discount-consent')?.checked) return fail('Marque a autorização para continuar.');
+
+            // Modo "Nova aba": a janela precisa nascer AQUI, ainda dentro do clique.
+            janela = prepararJanela();
 
             if (button) { button.disabled = true; button.textContent = 'Carregando proposta...'; }
             errorBox?.classList.add('hidden');
@@ -1050,11 +1056,23 @@
 
             if (!data || !data.success) {
                 if (data?.fallback_url) {           // plano B do guia: só em 502/503
+                    descartarJanela(janela);
                     window.location.replace(data.fallback_url);
                     return;
                 }
                 return fail(data?.message || 'Não conseguimos carregar a proposta agora.');
             }
+
+            // Cadastro do parceiro em "Nova aba": a proposta abre na janela à
+            // parte e o portal fica aqui, esperando para aplicar o desconto.
+            if (data.open_in === 'popup' && janela) {
+                lead = { lead_id: data.lead_id };
+                if (abrirNaJanela(janela, data.url, data.min_seconds)) {
+                    if (button) { button.disabled = false; button.textContent = 'Quero receber a proposta'; }
+                    return;
+                }
+            }
+            descartarJanela(janela);    // sem janela (bloqueada): segue pela mesma aba
 
             // Cadastro do parceiro em "Modal": a proposta abre aqui dentro e o
             // passageiro nem sai do portal.
@@ -1078,6 +1096,8 @@
             if (!lead) return;
             // forceRedirect: a página do parceiro não abriu embutida, então vai em tela cheia.
             const forceRedirect = !!(opcoes && opcoes.forceRedirect);
+            // Modo "Nova aba": a janela nasce no clique do "Abrir a proposta".
+            const janela = forceRedirect ? null : prepararJanela();
             const botao = el('discount-reopen-btn');
             const box = el('discount-waiting-error');
             if (botao) { botao.disabled = true; botao.textContent = 'Abrindo...'; }
@@ -1095,6 +1115,11 @@
                 const data = await response.json();
 
                 if (data?.success && data.url) {
+                    if (data.open_in === 'popup' && janela && abrirNaJanela(janela, data.url, data.min_seconds)) {
+                        if (botao) { botao.disabled = false; botao.textContent = 'Abrir a proposta'; }
+                        return;
+                    }
+                    descartarJanela(janela);
                     if (data.open_in === 'iframe' && !forceRedirect) {
                         if (botao) { botao.disabled = false; botao.textContent = 'Abrir a proposta'; }
                         openDiscountFrame(data.url, data.min_seconds);
@@ -1103,11 +1128,13 @@
                     window.location.replace(data.url);
                     return;
                 }
+                descartarJanela(janela);
                 if (box) {
                     box.textContent = data?.message || 'Não conseguimos reabrir a proposta.';
                     box.classList.remove('hidden');
                 }
             } catch (e) {
+                descartarJanela(janela);
                 if (box) {
                     box.textContent = 'Sem conexão para reabrir a proposta.';
                     box.classList.remove('hidden');
@@ -1116,6 +1143,111 @@
 
             if (botao) { botao.disabled = false; botao.textContent = 'Abrir a proposta'; }
         };
+
+        // ---------- Proposta numa JANELA à parte (cadastro em "Nova aba") ----------
+        // O app da Cash Cash não deixa ser embutido (X-Frame-Options: DENY), mas
+        // abre normalmente numa janela própria. O portal fica aberto por trás e,
+        // quando a janela fecha ou o passageiro volta para cá, o servidor confere
+        // o tempo (tryConfirm) e o desconto é aplicado sem recarregar a página.
+
+        let popup = null;
+        let popupTick = null;
+        let popupAbertoEm = 0;
+        let popupMinimo = 0;
+
+        /**
+         * A janela tem de nascer no próprio clique: aberta depois de um await, o
+         * navegador a trata como propaganda e bloqueia. Por isso abre vazia agora
+         * e recebe o endereço quando o servidor responder. Devolve null se o
+         * modo não for "Nova aba" ou se o navegador bloquear — aí o fluxo segue
+         * pela mesma aba, como sempre foi.
+         */
+        function prepararJanela() {
+            if (OPEN_IN !== 'popup') return null;
+
+            let janela = null;
+            try { janela = window.open('', 'proposta_parceiro'); } catch (e) { janela = null; }
+            if (!janela) return null;
+
+            try {
+                janela.opener = null;   // a página do parceiro não consegue mexer no portal
+                janela.document.title = 'Carregando sua proposta...';
+                janela.document.body.innerHTML =
+                    '<p style="font-family:sans-serif;text-align:center;margin-top:40vh;color:#555">Carregando sua proposta…</p>';
+            } catch (e) { /* janela já em outro endereço: segue */ }
+
+            return janela;
+        }
+
+        function descartarJanela(janela) {
+            try { if (janela && !janela.closed) janela.close(); } catch (e) {}
+        }
+
+        /** Leva a janela até a proposta e passa a acompanhar o retorno. */
+        function abrirNaJanela(janela, url, minSeconds) {
+            try { janela.location.replace(url); } catch (e) { return false; }   // a url nunca é logada
+
+            popup = janela;
+            popupAbertoEm = Date.now();
+            popupMinimo = minSeconds || MIN_SECONDS;
+
+            hideAll();
+            const subtitulo = el('discount-waiting-subtitle');
+            if (subtitulo) subtitulo.textContent = 'Numa aba nova, aqui do lado';
+            const hint = el('discount-waiting-hint');
+            if (hint) hint.textContent = 'Veja a proposta na outra aba. Quando terminar, feche a aba e volte aqui: o desconto é liberado na hora.';
+            renderWaiting(popupMinimo);
+            show('discount-waiting-modal');
+
+            clearInterval(popupTick);
+            popupTick = setInterval(function () {
+                renderWaiting(faltaNaJanela());
+                if (popup && popup.closed) {
+                    pararDeAcompanhar();
+                    conferirRetornoDaJanela();
+                }
+            }, 1000);
+
+            return true;
+        }
+
+        // Conta pelo relógio, não pelos ticks: com o portal em segundo plano, o
+        // navegador desacelera os timers dessa aba.
+        function faltaNaJanela() {
+            return Math.max(0, Math.ceil(popupMinimo - (Date.now() - popupAbertoEm) / 1000));
+        }
+
+        function pararDeAcompanhar() {
+            clearInterval(popupTick);
+            popupTick = null;
+            popup = null;
+        }
+
+        async function conferirRetornoDaJanela() {
+            const data = await tryConfirm();
+            if (data?.granted) {
+                hideAll();
+                ganhouDesconto(data);
+                return;
+            }
+
+            renderWaiting(data?.remaining_seconds);
+            const subtitulo = el('discount-waiting-subtitle');
+            if (subtitulo) subtitulo.textContent = 'Você fechou antes do tempo';
+            const hint = el('discount-waiting-hint');
+            if (hint) hint.textContent = 'Abra a proposta de novo e fique até o fim da contagem para liberar o desconto.';
+            show('discount-waiting-modal');
+        }
+
+        // Voltou para a aba do portal sem fechar a da proposta: se o tempo já
+        // passou, fecha a outra aba e libera o desconto.
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden || !popup || faltaNaJanela() > 0) return;
+            const aberta = popup;
+            pararDeAcompanhar();
+            descartarJanela(aberta);
+            conferirRetornoDaJanela();
+        });
 
         // ---------- Proposta aberta DENTRO do portal (cadastro em "Modal") ----------
         // Quem decide se o desconto sai continua sendo o servidor, no tryConfirm():

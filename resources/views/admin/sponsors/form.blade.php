@@ -203,8 +203,10 @@
                     <div>
                         <label class="block text-xs font-bold text-gray-700 mb-1">Como abrir</label>
                         <select name="open_in" class="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:border-green-500 focus:outline-none">
-                            <option value="redirect" {{ old('open_in', $cfg['open_in'] ?? '') === 'iframe' ? '' : 'selected' }}>Redirect (sai do portal)</option>
-                            <option value="iframe" {{ old('open_in', $cfg['open_in'] ?? '') === 'iframe' ? 'selected' : '' }}>Modal (exige liberar embed)</option>
+                            @php $abrirEm = old('open_in', $cfg['open_in'] ?? 'redirect'); @endphp
+                            <option value="redirect" {{ in_array($abrirEm, ['popup', 'iframe'], true) ? '' : 'selected' }}>Redirect (sai do portal)</option>
+                            <option value="popup" {{ $abrirEm === 'popup' ? 'selected' : '' }}>Nova aba (portal fica aberto por trás)</option>
+                            <option value="iframe" {{ $abrirEm === 'iframe' ? 'selected' : '' }}>Modal (exige liberar embed)</option>
                         </select>
                     </div>
                     <div>
@@ -222,9 +224,9 @@
                         (termina em <code>/leads</code>). Os caminhos do token e da sessão são automáticos —
                         os campos acima são ignorados. Variáveis: <code>CASHCASH_CLIENT_ID</code> e
                         <code>CASHCASH_CLIENT_SECRET</code>.
-                        Use <strong>Redirect</strong>: o guia v1.0 da Cash Cash diz que o app deles
-                        <strong>recusa ser embutido</strong>. Só escolha Modal se eles confirmarem por escrito
-                        que liberaram.
+                        Use <strong>Redirect</strong> ou <strong>Nova aba</strong>. <strong>Modal não funciona</strong>:
+                        o app deles bloqueia ser embutido (<code>X-Frame-Options: DENY</code>).
+                        Em Nova aba, se o navegador do passageiro bloquear a janela, o portal cai no Redirect sozinho.
                     </p>
                 </div>
 
