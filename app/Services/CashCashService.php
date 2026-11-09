@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\DiscountSponsor;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -33,6 +34,46 @@ class CashCashService
         return (string) config('services.cashcash.app_url');
     }
 
+    /**
+     * Cadastro da Cash Cash em /admin/parceiros, quando é ele que está ativo.
+     * Dele vêm a Base URL (homologação x produção) e o "Como abrir".
+     * As credenciais continuam só no .env — o cadastro nunca guarda segredo.
+     */
+    private function sponsor(): ?DiscountSponsor
+    {
+        $sponsor = DiscountSponsor::active();
+
+        return $sponsor
+            && $sponsor->type === DiscountSponsor::TYPE_API
+            && $sponsor->cfg('style') === 'cashcash'
+                ? $sponsor
+                : null;
+    }
+
+    /** Raiz da API: a do cadastro ativo; sem cadastro, a do .env. */
+    private function apiUrl(): string
+    {
+        return rtrim((string) ($this->sponsor()?->cfg('base_url') ?: config('services.cashcash.api_url')), '/');
+    }
+
+    /**
+     * 'iframe' mostra a proposta dentro do portal; 'redirect' (padrão) leva o
+     * passageiro até o app do parceiro e ele volta sozinho.
+     */
+    public function openIn(): string
+    {
+        return $this->sponsor()?->cfg('open_in') === 'iframe' ? 'iframe' : 'redirect';
+    }
+
+    /**
+     * Um token por ambiente e credencial. Trocar homologação por produção não
+     * pode reaproveitar o token antigo, que ainda vale por até 2h no cache.
+     */
+    private function tokenCacheKey(): string
+    {
+        return self::TOKEN_CACHE_KEY . ':' . md5($this->apiUrl() . '|' . config('services.cashcash.client_id'));
+    }
+
     // ---------- Token ----------
 
     /**
@@ -42,7 +83,7 @@ class CashCashService
     private function accessToken(bool $force = false): ?string
     {
         if (!$force) {
-            $cached = Cache::get(self::TOKEN_CACHE_KEY);
+            $cached = Cache::get($this->tokenCacheKey());
             if ($cached) {
                 return $cached;
             }
@@ -50,7 +91,7 @@ class CashCashService
 
         $response = Http::asForm()
             ->timeout((int) config('services.cashcash.token_timeout', 10))
-            ->post(config('services.cashcash.api_url') . '/partner/token', [
+            ->post($this->apiUrl() . '/partner/token', [
                 'grant_type' => 'client_credentials',
                 'client_id' => config('services.cashcash.client_id'),
                 'client_secret' => config('services.cashcash.client_secret'),
@@ -76,7 +117,7 @@ class CashCashService
         // Renova um minuto antes de vencer, como o guia recomenda.
         $expiresIn = (int) ($response->json('expires_in') ?: 7200);
         $ttl = max(60, $expiresIn - 60);
-        Cache::put(self::TOKEN_CACHE_KEY, $token, $ttl);
+        Cache::put($this->tokenCacheKey(), $token, $ttl);
 
         return $token;
     }
@@ -108,7 +149,7 @@ class CashCashService
             $response = Http::withToken($token)
                 ->timeout((int) config('services.cashcash.timeout', 20))
                 ->acceptJson()
-                ->post(config('services.cashcash.api_url') . '/partner/handoffs', [
+                ->post($this->apiUrl() . '/partner/handoffs', [
                     'cpf' => $cpf,
                     'consent' => $consent,
                 ]);
@@ -124,7 +165,7 @@ class CashCashService
 
         // Token vencido/recusado: pede outro e repete UMA vez.
         if ($response->status() === 401 && !$retried) {
-            Cache::forget(self::TOKEN_CACHE_KEY);
+            Cache::forget($this->tokenCacheKey());
             return $this->createHandoff($consent, $cpf, true);
         }
 

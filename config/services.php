@@ -77,6 +77,15 @@ return [
     | O client_secret e o token NUNCA podem ir para log, código ou analytics.
     | A API é chamada só servidor-a-servidor (nunca pelo navegador do passageiro).
     */
+    // Credenciais dos parceiros do espaço de desconto, pelo NOME da variável.
+    // O cadastro em /admin/parceiros guarda só esse nome; o valor sai daqui.
+    // Ler env() direto no código falha em produção: com `php artisan config:cache`
+    // o .env deixa de ser lido e env() devolve vazio.
+    'sponsor_credentials' => [
+        'CASHCASH_CLIENT_ID' => env('CASHCASH_CLIENT_ID'),
+        'CASHCASH_CLIENT_SECRET' => env('CASHCASH_CLIENT_SECRET'),
+    ],
+
     'cashcash' => [
         'enabled' => env('CASHCASH_ENABLED', false),
         'api_url' => rtrim(env('CASHCASH_API_URL', 'https://gw-30ff.cashcash.com.br/leads'), '/'),

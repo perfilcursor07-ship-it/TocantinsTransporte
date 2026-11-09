@@ -216,6 +216,16 @@
                     </div>
                 </div>
 
+                <div class="bg-purple-50 border border-purple-200 rounded-xl p-3">
+                    <p class="text-[12px] text-purple-900 leading-snug">
+                        <strong>Formato Cash Cash:</strong> a Base URL troca entre homologação e produção
+                        (termina em <code>/leads</code>). Os caminhos do token e da sessão são automáticos —
+                        os campos acima são ignorados. Variáveis: <code>CASHCASH_CLIENT_ID</code> e
+                        <code>CASHCASH_CLIENT_SECRET</code>.
+                        Em <strong>Modal</strong>, a proposta abre dentro do portal, sem o passageiro sair.
+                    </p>
+                </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-bold text-gray-700 mb-1">Variável do client_id</label>

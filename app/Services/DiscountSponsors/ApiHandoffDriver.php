@@ -217,11 +217,19 @@ class ApiHandoffDriver extends BaseDriver
             . '/' . ltrim((string) $this->sponsor->cfg($key, $padrao), '/');
     }
 
-    /** Lê a credencial do .env pelo nome guardado no config. */
+    /**
+     * Credencial pelo nome guardado no cadastro. Vem de
+     * config('services.sponsor_credentials') porque, com a config em cache,
+     * env() devolve vazio; env() fica só para parceiros ainda não mapeados lá.
+     */
     private function credencial(string $key): ?string
     {
         $nome = $this->sponsor->cfg($key);
-        return $nome ? env($nome) : null;
+        if (!$nome) {
+            return null;
+        }
+
+        return config('services.sponsor_credentials.' . $nome) ?? env($nome);
     }
 
     private function mensagemFalha(array $r): string

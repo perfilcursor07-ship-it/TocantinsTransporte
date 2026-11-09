@@ -133,6 +133,8 @@ class CashCashController extends Controller
             'lead_id' => $lead->id,
             'handoff_id' => $result['handoff_id'],
             'url' => $result['url'], // entregue ao navegador para o redirect — não logar
+            // Do cadastro em /admin/parceiros: 'iframe' abre dentro do portal.
+            'open_in' => $this->cashCash->openIn(),
             'min_seconds' => SettingsHelper::getCashCashMinSeconds(),
             'discount_amount' => SettingsHelper::getVideoDiscountAmount(),
         ]);
@@ -305,6 +307,7 @@ class CashCashController extends Controller
             'success' => true,
             'lead_id' => $lead->id,
             'url' => $result['url'],
+            'open_in' => $this->cashCash->openIn(),
             'min_seconds' => SettingsHelper::getCashCashMinSeconds(),
         ]);
     }

@@ -808,7 +808,7 @@
             <div class="bg-white rounded-2xl w-full max-w-sm animate-slide-up shadow-2xl overflow-hidden">
                 <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-5 py-4 text-center">
                     <p class="text-white font-extrabold text-base">Sua proposta está aberta</p>
-                    <p class="text-purple-100 text-xs mt-1">Numa aba nova, aqui do lado</p>
+                    <p id="discount-waiting-subtitle" class="text-purple-100 text-xs mt-1">Numa aba nova, aqui do lado</p>
                 </div>
 
                 <div class="p-5">
@@ -839,6 +839,35 @@
         </div>
     </div>
 
+    <!-- Proposta do parceiro aberta DENTRO do portal (cadastro do parceiro em "Modal") -->
+    <div id="discount-frame-modal" class="fixed inset-0 bg-black/70 z-[75] hidden">
+        <div class="flex flex-col h-full w-full max-w-lg mx-auto bg-white sm:my-4 sm:h-[calc(100%-2rem)] sm:rounded-2xl overflow-hidden shadow-2xl">
+            <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-4 py-3 flex items-center gap-3">
+                <div class="flex-1 min-w-0">
+                    <p class="text-white font-extrabold text-sm">Sua proposta</p>
+                    <p id="discount-frame-timer" class="text-purple-100 text-xs tabular-nums">Desconto liberado em --</p>
+                </div>
+                <button type="button" onclick="closeDiscountFrame()" aria-label="Fechar a proposta"
+                    class="w-9 h-9 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-white text-lg font-bold">✕</button>
+            </div>
+
+            {{-- Sem sandbox: o app do parceiro precisa de script e formulário.
+                 no-referrer: a url do portal pode trazer o MAC e o IP do aparelho. --}}
+            <iframe id="discount-frame" title="Proposta do parceiro" class="flex-1 w-full border-0 bg-gray-50"
+                referrerpolicy="no-referrer"></iframe>
+
+            <div class="p-3 border-t border-gray-200 bg-white">
+                <button id="discount-frame-done" type="button" onclick="finishDiscountFrame()" disabled
+                    class="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl shadow-md text-sm transition-all active:scale-[0.98]">
+                    Aguarde para liberar o desconto
+                </button>
+                <button type="button" onclick="openDiscountFullScreen()" class="mt-1 w-full text-[12px] font-semibold text-gray-500 hover:text-gray-700 py-1.5 underline">
+                    A proposta não carregou? Abrir em tela cheia
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
     (function() {
         const DISCOUNT_AMOUNT = {{ $video_discount_amount ?? 1 }};
@@ -856,7 +885,7 @@
         function show(id) { el(id)?.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
         function hide(id) { el(id)?.classList.add('hidden'); }
         function hideAll() {
-            ['discount-choice-modal', 'discount-consent-modal', 'discount-waiting-modal'].forEach(hide);
+            ['discount-choice-modal', 'discount-consent-modal', 'discount-waiting-modal', 'discount-frame-modal'].forEach(hide);
             document.body.style.overflow = 'auto';
         }
 
@@ -1027,6 +1056,15 @@
                 return fail(data?.message || 'Não conseguimos carregar a proposta agora.');
             }
 
+            // Cadastro do parceiro em "Modal": a proposta abre aqui dentro e o
+            // passageiro nem sai do portal.
+            if (data.open_in === 'iframe') {
+                lead = { lead_id: data.lead_id };
+                if (button) { button.disabled = false; button.textContent = 'Quero receber a proposta'; }
+                openDiscountFrame(data.url, data.min_seconds);
+                return;
+            }
+
             // Mesma aba, como o guia pede. O portal recarrega quando ele voltar
             // e retoma pelo lead pendente — por isso nada precisa ficar na memória.
             window.location.replace(data.url);      // a url nunca é logada
@@ -1036,8 +1074,10 @@
          * Reabre a proposta. O link do parceiro é de uso único e expira em 5 min,
          * então o servidor gera um handoff novo.
          */
-        window.reopenDiscountOffer = async function() {
+        window.reopenDiscountOffer = async function(opcoes) {
             if (!lead) return;
+            // forceRedirect: a página do parceiro não abriu embutida, então vai em tela cheia.
+            const forceRedirect = !!(opcoes && opcoes.forceRedirect);
             const botao = el('discount-reopen-btn');
             const box = el('discount-waiting-error');
             if (botao) { botao.disabled = true; botao.textContent = 'Abrindo...'; }
@@ -1055,6 +1095,11 @@
                 const data = await response.json();
 
                 if (data?.success && data.url) {
+                    if (data.open_in === 'iframe' && !forceRedirect) {
+                        if (botao) { botao.disabled = false; botao.textContent = 'Abrir a proposta'; }
+                        openDiscountFrame(data.url, data.min_seconds);
+                        return;
+                    }
                     window.location.replace(data.url);
                     return;
                 }
@@ -1070,6 +1115,107 @@
             }
 
             if (botao) { botao.disabled = false; botao.textContent = 'Abrir a proposta'; }
+        };
+
+        // ---------- Proposta aberta DENTRO do portal (cadastro em "Modal") ----------
+        // Quem decide se o desconto sai continua sendo o servidor, no tryConfirm():
+        // ele mede o tempo desde a abertura do link. A contagem aqui é só visual.
+
+        let frameTick = null;
+
+        function openDiscountFrame(url, minSeconds) {
+            hideAll();
+            const frame = el('discount-frame');
+            if (frame) frame.src = url;          // a url nunca é logada
+            // O botão do chat fica por cima do rodapé da proposta.
+            el('chat-widget')?.style.setProperty('display', 'none');
+            show('discount-frame-modal');
+            countFrame(minSeconds || MIN_SECONDS);
+        }
+
+        function countFrame(segundos) {
+            clearInterval(frameTick);
+            let restam = Math.max(0, Math.ceil(segundos));
+            const aviso = el('discount-frame-timer');
+            const botao = el('discount-frame-done');
+
+            const pintar = function () {
+                if (restam > 0) {
+                    if (aviso) aviso.textContent = 'Desconto liberado em ' + restam + 's';
+                    if (botao) { botao.disabled = true; botao.textContent = 'Aguarde ' + restam + 's para liberar o desconto'; }
+                    return;
+                }
+                if (aviso) aviso.textContent = 'Desconto liberado!';
+                if (botao) { botao.disabled = false; botao.textContent = 'Concluir e pagar com desconto'; }
+            };
+
+            pintar();
+            frameTick = setInterval(function () {
+                restam--;
+                pintar();
+                if (restam <= 0) clearInterval(frameTick);
+            }, 1000);
+        }
+
+        function closeFrameUi() {
+            clearInterval(frameTick);
+            const frame = el('discount-frame');
+            if (frame) frame.src = 'about:blank';   // para o app do parceiro e libera memória
+            hide('discount-frame-modal');
+            el('chat-widget')?.style.removeProperty('display');
+            document.body.style.overflow = 'auto';
+        }
+
+        function ganhouDesconto(data) {
+            const valor = Number(data.discount_amount) || DISCOUNT_AMOUNT;
+            applyDiscount(valor);
+            decided = true;
+            discountToast(valor);
+            continueToPayment();
+        }
+
+        /** Terminou de ver: o servidor confere o tempo e libera o desconto. */
+        window.finishDiscountFrame = async function () {
+            const botao = el('discount-frame-done');
+            if (botao) { botao.disabled = true; botao.textContent = 'Conferindo...'; }
+
+            const data = await tryConfirm();
+            if (data?.granted) {
+                closeFrameUi();
+                ganhouDesconto(data);
+                return;
+            }
+
+            // Sem resposta, ou o servidor ainda não contou o tempo todo: segue contando.
+            countFrame(data?.remaining_seconds ?? 5);
+        };
+
+        /** Fechou: se já deu o tempo, leva o desconto; senão oferece reabrir. */
+        window.closeDiscountFrame = async function () {
+            closeFrameUi();
+
+            const data = await tryConfirm();
+            if (data?.granted) {
+                ganhouDesconto(data);
+                return;
+            }
+
+            renderWaiting(data?.remaining_seconds);
+            const subtitulo = el('discount-waiting-subtitle');
+            if (subtitulo) subtitulo.textContent = 'Você fechou antes do tempo';
+            const hint = el('discount-waiting-hint');
+            if (hint) hint.textContent = 'Abra a proposta de novo e fique até o fim da contagem para liberar o desconto.';
+            show('discount-waiting-modal');
+        };
+
+        /**
+         * A página do parceiro não abriu embutida (ele pode bloquear o embed).
+         * O link é de uso único, então pede um novo e vai em tela cheia.
+         */
+        window.openDiscountFullScreen = function () {
+            closeFrameUi();
+            show('discount-waiting-modal');
+            reopenDiscountOffer({ forceRedirect: true });
         };
 
         function renderWaiting(restam) {
