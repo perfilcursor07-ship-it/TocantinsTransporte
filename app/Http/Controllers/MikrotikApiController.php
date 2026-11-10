@@ -978,6 +978,11 @@ class MikrotikApiController extends Controller
                 ->get();
 
             foreach ($usersNeedingHeal as $healUser) {
+                // Bloqueado pelo admin no painel: não reativar sozinho.
+                if (cache()->has('admin_blocked_user_'.$healUser->id)) {
+                    continue;
+                }
+
                 $latestPayment = $healUser->payments()
                     ->where('status', 'completed')
                     ->where('paid_at', '>', now()->subHours($sessionDuration))
@@ -989,7 +994,10 @@ class MikrotikApiController extends Controller
                         app(\App\Services\IntervalPlanService::class)->activatePaidCheckout($latestPayment);
                         continue;
                     }
-                    $newExpires = Carbon::parse($latestPayment->paid_at)->addHours($sessionDuration);
+                    // Duração do PLANO pago, não a global: sem isso quem pagou o
+                    // plano curto (1h) era reativado até completar a duração cheia.
+                    $planDuration = max((float) data_get($latestPayment->payment_data, 'duration_hours', $sessionDuration), 0.1);
+                    $newExpires = Carbon::parse($latestPayment->paid_at)->addMinutes((int) round($planDuration * 60));
 
                     if ($newExpires > now()) {
                         $previousStatus = $healUser->status;

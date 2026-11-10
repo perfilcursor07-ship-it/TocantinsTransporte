@@ -51,7 +51,9 @@ class ReconcilePayments extends Command
      */
     private function reconcilePendingPagBank(int $hours, int $limit): int
     {
-        $pendings = Payment::where('status', 'pending')
+        // 'cancelled' entra junto: o PIX antigo, cancelado quando o passageiro
+        // gerou um novo, continua pagável no PagBank.
+        $pendings = Payment::whereIn('status', ['pending', 'cancelled'])
             ->where('payment_type', 'pix')
             ->where('gateway_payment_id', 'like', 'ORDE_%')
             ->where('created_at', '>', now()->subHours($hours))
@@ -113,7 +115,7 @@ class ReconcilePayments extends Command
                 DB::transaction(function () use ($payment, $status) {
                     $fresh = Payment::where('id', $payment->id)->lockForUpdate()->first();
 
-                    if (! $fresh || $fresh->status !== 'pending') {
+                    if (! $fresh || ! in_array($fresh->status, ['pending', 'cancelled'], true)) {
                         return; // webhook chegou nesse meio tempo
                     }
 
@@ -159,6 +161,10 @@ class ReconcilePayments extends Command
         foreach ($payments as $payment) {
             $user = $payment->user;
             if (! $user) {
+                continue;
+            }
+            // Bloqueado pelo admin no painel: não reativar sozinho.
+            if (Cache::has('admin_blocked_user_'.$user->id)) {
                 continue;
             }
             if (\App\Services\IntervalPlanService::isInterval($payment)) {

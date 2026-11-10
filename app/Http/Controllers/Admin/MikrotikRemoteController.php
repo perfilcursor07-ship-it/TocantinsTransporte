@@ -285,6 +285,7 @@ class MikrotikRemoteController extends Controller
                     'expires_at' => now()->addHours($hours),
                     'phone' => $phone ?: $user->phone,
                 ]);
+                cache()->forget('admin_blocked_user_'.$user->id);
                 $message = "MAC {$mac} RE-liberado por {$hours}h";
             } else {
                 // Criar novo usuário
@@ -339,7 +340,13 @@ class MikrotikRemoteController extends Controller
                 'connected_at' => null,
             ]);
 
-            Log::info("🔴 Admin: MAC {$mac} bloqueado", ['user_id' => $user->id, 'phone' => $user->phone]);
+            // Sem esta marca o auto-heal e a reconciliação reativavam o usuário
+            // em 1-2 min quando ele tinha pagamento recente. Vale 7 dias (maior
+            // plano) e cai sozinha com um pagamento novo ou liberação manual.
+            cache()->put('admin_blocked_user_'.$user->id, true, now()->addDays(7));
+            cache()->forget('mikrotik_sync_lists_all');
+
+            Log::info("🔴 Admin: MAC {$mac} bloqueado",['user_id' => $user->id, 'phone' => $user->phone]);
 
             return response()->json([
                 'success' => true,

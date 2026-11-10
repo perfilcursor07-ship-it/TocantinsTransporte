@@ -61,8 +61,12 @@ Route::prefix('voucher')->name('voucher.')->group(function () {
 });
 
 // Rota alternativa para /portal (redireciona para raiz)
-Route::get('/portal', function () {
-    return redirect('/');
+// Repassa a query string: páginas antigas do hotspot (redirect.html) ainda
+// mandam /portal?mac=...&ip=... e sem isso o MAC do aparelho se perdia aqui.
+Route::get('/portal', function (\Illuminate\Http\Request $request) {
+    $query = $request->getQueryString();
+
+    return redirect('/'.($query ? '?'.$query : ''));
 })->name('portal.redirect');
 
 // Página pública de reativação de acesso

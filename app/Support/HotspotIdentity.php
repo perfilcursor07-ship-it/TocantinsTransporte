@@ -168,7 +168,7 @@ class HotspotIdentity
         // Se o frontend já enviou um MAC real (não-mock), ele é confiável - não substituir
         // Isso evita trocar o MAC correto pelo MAC de outro dispositivo com mesmo IP
         if (! $normalizedMac || self::isMockMac($normalizedMac)) {
-            $report = MikrotikMacReport::getLatestMacForIp($ip);
+            $report = self::latestReportForIp($ip);
 
             if ($report && ! self::isMockMac($report->mac_address)) {
                 return self::normalizeMac($report->mac_address);
@@ -176,6 +176,45 @@ class HotspotIdentity
         }
 
         return $normalizedMac;
+    }
+
+    /**
+     * Report mais recente do IP interno, preferindo o ônibus de onde vem a
+     * requisição. Todos os ônibus usam 10.5.50.x, então o mesmo IP existe em
+     * vários carros: sem o filtro, o MAC devolvido podia ser de um aparelho
+     * de outro ônibus (e era esse que acabava liberado).
+     *
+     * Só fica mais restrito no caso ambíguo; qualquer falha volta ao
+     * comportamento anterior.
+     */
+    private static function latestReportForIp(string $ip): ?MikrotikMacReport
+    {
+        try {
+            $busId = cache()->get('mikrotik_ip_'.request()->ip());
+
+            if ($busId) {
+                $fromBus = MikrotikMacReport::getLatestMacForIp($ip, $busId);
+                if ($fromBus) {
+                    return $fromBus;
+                }
+
+                // Nenhum report deste ônibus: só aceitar se o IP aponta para
+                // um único MAC. Com mais de um candidato, não adivinhar.
+                $candidates = MikrotikMacReport::where('ip_address', $ip)
+                    ->recent()
+                    ->pluck('mac_address')
+                    ->map(fn ($m) => strtoupper(trim((string) $m)))
+                    ->unique();
+
+                if ($candidates->count() > 1) {
+                    return null;
+                }
+            }
+        } catch (\Throwable $e) {
+            // cai no comportamento anterior
+        }
+
+        return MikrotikMacReport::getLatestMacForIp($ip);
     }
 
     /**

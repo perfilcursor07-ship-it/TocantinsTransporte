@@ -1443,6 +1443,9 @@ class PaymentController extends Controller
             // Entre a criação do pagamento e a confirmação via webhook, o MAC pode ter sido atualizado
             $payment->user->refresh();
 
+            // Pagamento novo confirmado encerra um bloqueio administrativo anterior.
+            Cache::forget('admin_blocked_user_'.$payment->user_id);
+
             Log::info('🔓 Iniciando ativação de acesso do usuário', [
                 'payment_id' => $payment->id,
                 'user_id' => $payment->user_id,
@@ -2017,8 +2020,17 @@ class PaymentController extends Controller
                         'user_mac' => $payment->user->mac_address ?? 'N/A',
                     ]);
 
-                    // Só processar se ainda está pendente
-                    if ($payment->status === 'pending') {
+                    // Processar se está pendente OU se foi cancelado localmente.
+                    // 'cancelled' acontece quando o passageiro gera um PIX novo no
+                    // dashboard: o código antigo continua válido no PagBank e, se
+                    // ele pagar esse, o dinheiro entrou — tem que liberar.
+                    if (in_array($payment->status, ['pending', 'cancelled'], true)) {
+
+                        if ($payment->status === 'cancelled') {
+                            Log::warning('💳 PagBank confirmou PAID em pagamento cancelado localmente — liberando', [
+                                'payment_id' => $payment->id,
+                            ]);
+                        }
 
                         // Atualizar pagamento
                         $payment->update([
