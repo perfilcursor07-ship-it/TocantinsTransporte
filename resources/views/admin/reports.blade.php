@@ -104,10 +104,11 @@
     </section>
 
     <!-- Cards de Estatísticas -->
-    <section class="rep-card rounded-2xl grid grid-cols-2 lg:grid-cols-5 divide-black/[0.06] lg:divide-x overflow-hidden">
+    @php $isAdminReport = auth()->user()?->role === 'admin'; @endphp
+    <section class="rep-card rounded-2xl grid {{ $isAdminReport ? 'grid-cols-2 lg:grid-cols-5' : 'grid-cols-1' }} divide-black/[0.06] lg:divide-x overflow-hidden">
 
         <!-- Líquido (destaque) -->
-        <div class="col-span-2 lg:col-span-1 px-4 py-3 bg-emerald-50/60 border-b lg:border-b-0 border-black/[0.06]">
+        <div class="col-span-2 lg:col-span-1 px-4 py-3 bg-emerald-50/60 {{ $isAdminReport ? 'border-b lg:border-b-0' : '' }} border-black/[0.06]">
             <p class="text-[11px] font-semibold text-emerald-700 uppercase tracking-wide">Receita líquida</p>
             <p class="mt-0.5 text-xl font-extrabold text-emerald-700 tracking-tight leading-tight">R$ {{ number_format($stats['total_revenue'], 2, ',', '.') }}</p>
             <p class="text-[11px] text-muted">Ticket médio R$ {{ number_format($stats['avg_payment'], 2, ',', '.') }}</p>
@@ -116,6 +117,8 @@
             @endif
         </div>
 
+        {{-- Gestor vê só a Receita líquida --}}
+        @if($isAdminReport)
         <div class="px-4 py-3 border-b lg:border-b-0 border-r lg:border-r-0 border-black/[0.06]">
             <p class="text-[11px] font-semibold text-muted uppercase tracking-wide">Pendente</p>
             <p class="mt-0.5 text-xl font-extrabold text-ink tracking-tight leading-tight">R$ {{ number_format($stats['pending_payments'], 2, ',', '.') }}</p>
@@ -143,6 +146,7 @@
             <p class="mt-0.5 text-xl font-extrabold text-ink tracking-tight leading-tight">{{ $stats['active_sessions'] }}</p>
             <p class="text-[11px] text-muted">No período selecionado</p>
         </div>
+        @endif
     </section>
 
     <!-- Receita por Ônibus -->
@@ -208,7 +212,8 @@
         </div>
     </section>
 
-    <!-- Abas de Conteúdo -->
+    <!-- Abas de Conteúdo (listas de pagamentos e usuários: só admin) -->
+    @if($isAdminReport)
     <section class="rep-card rounded-2xl overflow-hidden">
         <!-- Navegação das Abas -->
         <div class="flex gap-1 px-3 pt-3 border-b border-black/[0.06] bg-gray-50/60">
@@ -559,6 +564,7 @@
         </div>
         @endif
     </section>
+    @endif
 </div>
 
 <div class="ui-modern">
@@ -1011,6 +1017,8 @@
 
         // Função para mostrar/esconder abas
         function showTab(tabName) {
+            if (!document.getElementById('content-' + tabName)) return;
+
             // Esconder todos os conteúdos das abas
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.add('hidden');

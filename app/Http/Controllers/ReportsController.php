@@ -293,6 +293,11 @@ class ReportsController extends Controller
 
     public function export(Request $request)
     {
+        // As listas de pagamentos e usuários são só do admin; o gestor vê a receita.
+        if (auth()->user()?->role !== 'admin') {
+            return back()->with('error', 'Apenas administradores podem exportar as listas.');
+        }
+
         // Mesma normalização do index
         $parseDate = function (?string $value, string $defaultTime = '00:00:00') {
             if (!$value) return null;
