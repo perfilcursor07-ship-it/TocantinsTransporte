@@ -114,9 +114,6 @@
             @if(($stats['refunded_revenue'] ?? 0) > 0)
             <p class="text-[10px] text-red-600">Bruto R$ {{ number_format($stats['completed_revenue'] ?? 0, 2, ',', '.') }} − Estornos R$ {{ number_format($stats['refunded_revenue'], 2, ',', '.') }}</p>
             @endif
-            @if(($stats['adjusted_count'] ?? 0) > 0)
-            <p class="text-[10px] text-amber-700">Inclui {{ $stats['adjusted_count'] }} pgto(s) manuais · R$ {{ number_format($stats['adjusted_revenue'], 2, ',', '.') }}</p>
-            @endif
         </div>
 
         <div class="px-4 py-3 border-b lg:border-b-0 border-r lg:border-r-0 border-black/[0.06]">
@@ -184,9 +181,6 @@
                 </div>
                 @if(($bus->refunded_count ?? 0) > 0)
                 <p class="text-[10px] text-red-600 mt-0.5">{{ $bus->refunded_count }} estorno(s) − R$ {{ number_format($bus->refunded_total ?? 0, 2, ',', '.') }}</p>
-                @endif
-                @if(($bus->adjusted_count ?? 0) > 0)
-                <p class="text-[10px] text-amber-700 mt-0.5">inclui {{ $bus->adjusted_count }} manual(is) + R$ {{ number_format($bus->adjusted_total ?? 0, 2, ',', '.') }}</p>
                 @endif
             </div>
             @endforeach
