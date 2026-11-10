@@ -202,6 +202,16 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin.access'])->gr
         Route::post('/reports/payments/{payment}/refund', [ReportsController::class, 'refundPayment'])
             ->name('reports.payments.refund');
 
+        // Ajuste da receita por ônibus no período do relatório
+        Route::get('/reports/buses/{serial}/ajustes', [App\Http\Controllers\Admin\BusRevenueAdjustmentController::class, 'show'])
+            ->name('reports.buses.adjustments');
+        Route::post('/reports/buses/{serial}/acrescentar', [App\Http\Controllers\Admin\BusRevenueAdjustmentController::class, 'store'])
+            ->name('reports.buses.adjustments.store');
+        Route::post('/reports/buses/{serial}/retirar', [App\Http\Controllers\Admin\BusRevenueAdjustmentController::class, 'removePayments'])
+            ->name('reports.buses.remove-payments');
+        Route::delete('/reports/ajustes/{adjustment}', [App\Http\Controllers\Admin\BusRevenueAdjustmentController::class, 'destroy'])
+            ->name('reports.adjustments.destroy');
+
         // Dispositivos
         Route::get('/devices', [AdminController::class, 'devices'])->name('devices');
 

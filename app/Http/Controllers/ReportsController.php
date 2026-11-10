@@ -99,15 +99,26 @@ class ReportsController extends Controller
         // Receita bruta (pagos) e estornos — líquido abate estornos do total
         $completedRevenue = (float) $applyBus(Payment::where('status', 'completed')->whereBetween('created_at', $dateRange))->sum('amount');
         $refundedRevenue = (float) $applyBus(Payment::where('status', 'refunded')->whereBetween('created_at', $dateRange))->sum('amount');
+        // Acréscimos manuais do admin por ônibus: contam como pagos, mas não
+        // são pagamentos (não aparecem na lista nem liberam internet).
+        $adjusted = collect(\App\Models\BusRevenueAdjustment::totaisPorOnibus(
+            $startDateTime, $endDateTime, $busFilter !== 'all' ? $busFilter : null
+        ));
+        $adjustedRevenue = (float) $adjusted->sum('total');
+        $adjustedCount = (int) $adjusted->sum('count');
+
+        $completedRevenue += $adjustedRevenue;
         $totalRevenue = $completedRevenue - $refundedRevenue;
 
         // Total de pagamentos (respeitando filtro de status)
         $totalQuery = Payment::whereBetween('created_at', $dateRange);
         if ($paymentStatus !== 'all') $totalQuery->where('status', $paymentStatus);
-        $totalPayments = $applyBus($totalQuery)->count();
+        $totalPayments = $applyBus($totalQuery)->count()
+            + (in_array($paymentStatus, ['all', 'completed'], true) ? $adjustedCount : 0);
 
         // Contagem por status
-        $completedPayments = $applyBus(Payment::where('status', 'completed')->whereBetween('created_at', $dateRange))->count();
+        $completedPayments = $applyBus(Payment::where('status', 'completed')->whereBetween('created_at', $dateRange))->count()
+            + $adjustedCount;
         $pendingPaymentsCount = $applyBus(Payment::where('status', 'pending')->whereBetween('created_at', $dateRange))->count();
         $refundedPaymentsCount = $applyBus(Payment::where('status', 'refunded')->whereBetween('created_at', $dateRange))->count();
         $pendingPayments = $applyBus(Payment::where('status', 'pending')->whereBetween('created_at', $dateRange))->sum('amount');
@@ -134,6 +145,8 @@ class ReportsController extends Controller
             'total_revenue' => $totalRevenue,
             'completed_revenue' => $completedRevenue,
             'refunded_revenue' => $refundedRevenue,
+            'adjusted_revenue' => $adjustedRevenue,
+            'adjusted_count' => $adjustedCount,
             'pending_payments' => $pendingPayments,
             'pending_payments_count' => $pendingPaymentsCount,
             'completed_payments_count' => $completedPayments,
@@ -202,14 +215,31 @@ class ReportsController extends Controller
             ->get()
             ->keyBy('date');
 
+        // Acréscimos manuais do admin, no dia em que foram lançados.
+        try {
+            $adjustedByDay = \App\Models\BusRevenueAdjustment::noPeriodo($startDateTime, $endDateTime)
+                ->select(
+                    DB::raw('DATE(reference_at) as date'),
+                    DB::raw('SUM(total) as total'),
+                    DB::raw('SUM(quantity) as count')
+                )
+                ->groupBy('date')
+                ->get()
+                ->keyBy('date');
+        } catch (\Throwable $e) {
+            report($e);
+            $adjustedByDay = collect();
+        }
+
         $revenueByDay = $completedByDay->keys()
             ->merge($refundedByDay->keys())
+            ->merge($adjustedByDay->keys())
             ->unique()
             ->sort()
-            ->map(function ($date) use ($completedByDay, $refundedByDay) {
-                $paid = (float) ($completedByDay[$date]->total ?? 0);
+            ->map(function ($date) use ($completedByDay, $refundedByDay, $adjustedByDay) {
+                $paid = (float) ($completedByDay[$date]->total ?? 0) + (float) ($adjustedByDay[$date]->total ?? 0);
                 $refund = (float) ($refundedByDay[$date]->total ?? 0);
-                $count = (int) ($completedByDay[$date]->count ?? 0);
+                $count = (int) ($completedByDay[$date]->count ?? 0) + (int) ($adjustedByDay[$date]->count ?? 0);
 
                 return (object) [
                     'date' => $date,

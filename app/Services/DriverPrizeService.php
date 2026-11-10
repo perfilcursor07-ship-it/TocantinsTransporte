@@ -132,6 +132,16 @@ class DriverPrizeService
             ];
         }
 
+        // Acréscimos manuais do admin no relatório, pelo mês em que foram
+        // lançados — senão o prêmio diverge da receita por ônibus.
+        $fim = $inicio->copy()->addMonthNoOverflow()->subSecond();
+        foreach (\App\Models\BusRevenueAdjustment::totaisPorOnibus($inicio, $fim) as $serial => $ajuste) {
+            $saida[$serial] = [
+                'receita' => ($saida[$serial]['receita'] ?? 0) + $ajuste->total,
+                'pagamentos' => ($saida[$serial]['pagamentos'] ?? 0) + $ajuste->count,
+            ];
+        }
+
         return $saida;
     }
 

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Bus;
+use App\Models\BusRevenueAdjustment;
 use App\Models\Payment;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -52,9 +53,12 @@ class BusRevenueService
     }
 
     /**
-     * Receita líquida por ônibus (pagos − estornos) no período.
+     * Receita líquida por ônibus (pagos − estornos + acréscimos manuais) no período.
      * Todos os ônibus cadastrados aparecem, mesmo sem receita (R$ 0,00);
      * ônibus não cadastrados só aparecem se tiverem movimento.
+     *
+     * Os acréscimos manuais do admin (BusRevenueAdjustment) entram em total e
+     * count, e também ficam separados em adjusted_* para a tela poder mostrar.
      */
     public function byBus($startDateTime, $endDateTime): Collection
     {
@@ -76,23 +80,29 @@ class BusRevenueService
 
         $completed = $totalsFor('completed');
         $refunded = $totalsFor('refunded');
+        $adjusted = BusRevenueAdjustment::totaisPorOnibus($startDateTime, $endDateTime);
 
         $busIds = collect($busNames)->keys()
             ->merge($completed->keys())
             ->merge($refunded->keys())
+            ->merge(array_keys($adjusted))
             ->unique();
 
-        return $busIds->map(function ($busId) use ($completed, $refunded, $busNames) {
+        return $busIds->map(function ($busId) use ($completed, $refunded, $adjusted, $busNames) {
             $paid = (float) ($completed[$busId]->total ?? 0);
             $refund = (float) ($refunded[$busId]->total ?? 0);
+            $extra = (float) ($adjusted[$busId]->total ?? 0);
+            $extraCount = (int) ($adjusted[$busId]->count ?? 0);
 
             return (object) [
                 'bus_id' => $busId,
                 'bus_name' => $busNames[$busId] ?? $busId,
-                'total' => $paid - $refund,
-                'count' => (int) ($completed[$busId]->count ?? 0),
+                'total' => $paid - $refund + $extra,
+                'count' => (int) ($completed[$busId]->count ?? 0) + $extraCount,
                 'refunded_count' => (int) ($refunded[$busId]->count ?? 0),
                 'refunded_total' => $refund,
+                'adjusted_count' => $extraCount,
+                'adjusted_total' => $extra,
             ];
         })
             ->sortBy([['total', 'desc'], ['bus_name', 'asc']])

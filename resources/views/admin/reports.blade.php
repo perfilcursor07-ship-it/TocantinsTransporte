@@ -114,6 +114,9 @@
             @if(($stats['refunded_revenue'] ?? 0) > 0)
             <p class="text-[10px] text-red-600">Bruto R$ {{ number_format($stats['completed_revenue'] ?? 0, 2, ',', '.') }} − Estornos R$ {{ number_format($stats['refunded_revenue'], 2, ',', '.') }}</p>
             @endif
+            @if(($stats['adjusted_count'] ?? 0) > 0)
+            <p class="text-[10px] text-amber-700">Inclui {{ $stats['adjusted_count'] }} pgto(s) manuais · R$ {{ number_format($stats['adjusted_revenue'], 2, ',', '.') }}</p>
+            @endif
         </div>
 
         <div class="px-4 py-3 border-b lg:border-b-0 border-r lg:border-r-0 border-black/[0.06]">
@@ -160,7 +163,17 @@
             @foreach($revenueByBus as $bus)
             @php $share = ($bus->total / max($maxRevenue, 0.01)) * 100; $hasRevenue = $bus->total > 0; @endphp
             <div class="rounded-xl p-3 ring-1 transition-shadow hover:shadow-md {{ $hasRevenue ? 'ring-black/[0.06] bg-white' : 'ring-black/[0.04] bg-gray-50/70' }}" title="{{ $bus->bus_id }}">
+                @if(auth()->user()?->role === 'admin' && $bus->bus_id !== 'desconhecido')
+                <button type="button"
+                        onclick='openBusAdjustModal(@json($bus->bus_id), @json($bus->bus_name))'
+                        class="group flex items-center gap-1 max-w-full text-left text-xs font-semibold text-ink2 hover:text-emerald-700"
+                        title="Ajustar a receita deste carro no período">
+                    <span class="truncate">{{ $bus->bus_name }}</span>
+                    <svg class="w-3.5 h-3.5 flex-shrink-0 text-muted group-hover:text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13l6.232-6.232a2.5 2.5 0 113.536 3.536L12.536 16.5H9V13z"/></svg>
+                </button>
+                @else
                 <p class="text-xs font-semibold text-ink2 truncate">{{ $bus->bus_name }}</p>
+                @endif
                 <p class="mt-1 text-base font-extrabold tracking-tight leading-tight {{ $hasRevenue ? 'text-emerald-700' : 'text-gray-400' }}">R$ {{ number_format($bus->total, 2, ',', '.') }}</p>
                 <div class="mt-2 h-1 bg-gray-100 rounded-full overflow-hidden">
                     <div class="h-full bg-emerald-500 rounded-full" style="width: {{ max(0, $share) }}%"></div>
@@ -171,6 +184,9 @@
                 </div>
                 @if(($bus->refunded_count ?? 0) > 0)
                 <p class="text-[10px] text-red-600 mt-0.5">{{ $bus->refunded_count }} estorno(s) − R$ {{ number_format($bus->refunded_total ?? 0, 2, ',', '.') }}</p>
+                @endif
+                @if(($bus->adjusted_count ?? 0) > 0)
+                <p class="text-[10px] text-amber-700 mt-0.5">inclui {{ $bus->adjusted_count }} manual(is) + R$ {{ number_format($bus->adjusted_total ?? 0, 2, ',', '.') }}</p>
                 @endif
             </div>
             @endforeach
@@ -646,6 +662,108 @@
             </form>
         </div>
     </div>
+
+    <!-- Modal Ajustar receita do ônibus -->
+    @php
+        $periodoInicio = $startDate;
+        $periodoFim = $endDate;
+    @endphp
+    <div id="bus-adjust-modal" class="fixed inset-0 z-[10000] hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[92vh] overflow-y-auto">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-black/[0.06]">
+                <div class="min-w-0">
+                    <h3 class="text-base font-bold text-ink truncate">Ajustar receita · <span id="bus-adjust-name"></span></h3>
+                    <p class="text-xs text-muted">Só no período {{ $periodLabel }}</p>
+                </div>
+                <button type="button" onclick="closeBusAdjustModal()" class="w-9 h-9 rounded-xl hover:bg-gray-100 text-muted text-lg">×</button>
+            </div>
+
+            <div class="px-6 pt-4">
+                <div class="grid grid-cols-2 gap-1 p-1 rounded-xl bg-gray-100">
+                    <button type="button" id="bus-adjust-tab-add" onclick="showBusAdjustTab('add')"
+                            class="px-3 py-2 text-sm font-bold rounded-lg">Acrescentar</button>
+                    <button type="button" id="bus-adjust-tab-remove" onclick="showBusAdjustTab('remove')"
+                            class="px-3 py-2 text-sm font-bold rounded-lg">Retirar</button>
+                </div>
+            </div>
+
+            <!-- Acrescentar -->
+            <form id="bus-adjust-add-form" method="POST" class="px-6 py-5 space-y-4">
+                @csrf
+                <input type="hidden" name="start_date" value="{{ $periodoInicio }}">
+                <input type="hidden" name="end_date" value="{{ $periodoFim }}">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="bus-adjust-qty" class="{{ $labelClass }}">Quantidade</label>
+                        <input id="bus-adjust-qty" type="number" name="quantity" required min="1" max="1000" step="1"
+                               inputmode="numeric" placeholder="10" oninput="updateBusAdjustTotal()" class="{{ $fieldClass }}">
+                    </div>
+                    <div>
+                        <label for="bus-adjust-amount" class="{{ $labelClass }}">Valor de cada</label>
+                        <div class="flex items-center rounded-xl bg-gray-50 ring-1 ring-black/[0.08] focus-within:ring-2 focus-within:ring-emerald-500 focus-within:bg-white">
+                            <span class="pl-3 text-sm font-bold text-muted">R$</span>
+                            <input id="bus-adjust-amount" type="number" name="unit_amount" required min="0.01" max="999.99" step="0.01"
+                                   inputmode="decimal" placeholder="5,99" oninput="updateBusAdjustTotal()"
+                                   class="w-full px-2 py-2.5 text-sm font-bold text-ink bg-transparent border-0 focus:outline-none focus:ring-0">
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label for="bus-adjust-date" class="{{ $labelClass }}">Data em que entram</label>
+                    <input id="bus-adjust-date" type="datetime-local" name="reference_at" required
+                           min="{{ $periodoInicio }}" max="{{ $periodoFim }}" value="{{ $periodoInicio }}" class="{{ $fieldClass }}">
+                    <p class="text-[11px] text-muted mt-1.5">Precisa estar dentro do período. É por esta data que o acréscimo conta no mês (inclusive no prêmio do motorista).</p>
+                </div>
+                <div>
+                    <label for="bus-adjust-note" class="{{ $labelClass }}">Observação (opcional)</label>
+                    <input id="bus-adjust-note" type="text" name="note" maxlength="255" placeholder="Ex: pagamentos em dinheiro" class="{{ $fieldClass }}">
+                </div>
+                <p class="text-sm text-ink2 rounded-xl bg-emerald-50 px-4 py-3">
+                    Total a somar: <strong class="text-emerald-700">R$ <span id="bus-adjust-total">0,00</span></strong><br>
+                    <span class="text-[11px] text-muted">Soma só na receita. Não cria pagamento de passageiro nem libera internet.</span>
+                </p>
+                <div class="flex gap-2 pt-1">
+                    <button type="button" onclick="closeBusAdjustModal()"
+                            class="flex-1 px-4 py-2.5 text-sm font-bold rounded-xl ring-1 ring-black/10 text-ink2 hover:bg-gray-50">Cancelar</button>
+                    <button type="submit"
+                            class="flex-1 px-4 py-2.5 text-sm font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700">Acrescentar</button>
+                </div>
+            </form>
+
+            <!-- Retirar -->
+            <form id="bus-adjust-remove-form" method="POST" class="hidden px-6 py-5 space-y-4"
+                  onsubmit="return confirmBusRemove()">
+                @csrf
+                <input type="hidden" name="start_date" value="{{ $periodoInicio }}">
+                <input type="hidden" name="end_date" value="{{ $periodoFim }}">
+                <div id="bus-adjust-remove-info" class="text-sm text-ink2 rounded-xl bg-gray-50 px-4 py-3">Carregando…</div>
+                <div>
+                    <label for="bus-adjust-remove-qty" class="{{ $labelClass }}">Quantos pagamentos excluir</label>
+                    <input id="bus-adjust-remove-qty" type="number" name="quantity" required min="1" step="1"
+                           inputmode="numeric" class="{{ $fieldClass }}">
+                </div>
+                <p class="text-xs text-red-700 rounded-xl bg-red-50 px-4 py-3 leading-relaxed">
+                    <strong>Exclusão definitiva.</strong> Apaga pagamentos que existem neste carro, dentro do período, começando pelos mais antigos. Pagamentos de fora do período não são tocados.
+                </p>
+                <div class="flex gap-2 pt-1">
+                    <button type="button" onclick="closeBusAdjustModal()"
+                            class="flex-1 px-4 py-2.5 text-sm font-bold rounded-xl ring-1 ring-black/10 text-ink2 hover:bg-gray-50">Cancelar</button>
+                    <button type="submit" id="bus-adjust-remove-submit"
+                            class="flex-1 px-4 py-2.5 text-sm font-bold rounded-xl bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed">Excluir</button>
+                </div>
+            </form>
+
+            <!-- Acréscimos já lançados no período -->
+            <div id="bus-adjust-list-box" class="hidden px-6 pb-5">
+                <p class="text-[11px] font-bold text-muted uppercase tracking-wide mb-2">Acréscimos manuais neste período</p>
+                <ul id="bus-adjust-list" class="space-y-2"></ul>
+            </div>
+        </div>
+    </div>
+    <form id="bus-adjust-undo-form" method="POST" class="hidden">
+        @csrf
+        @method('DELETE')
+    </form>
     @endif
 </div>
 
@@ -747,6 +865,129 @@
             const form = document.getElementById('refund-form');
             if (form) form.reset();
         }
+
+        // ---------- Ajustar receita do ônibus ----------
+        const busAdjustRoutes = {
+            show: @json(url('/admin/reports/buses/__SERIAL__/ajustes')),
+            add: @json(url('/admin/reports/buses/__SERIAL__/acrescentar')),
+            remove: @json(url('/admin/reports/buses/__SERIAL__/retirar')),
+            undo: @json(url('/admin/reports/ajustes/__ID__')),
+            start: @json($startDate),
+            end: @json($endDate),
+        };
+        let busAdjustName = '';
+        const brl = (v) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        function showBusAdjustTab(tab) {
+            const ativo = 'bg-white shadow text-ink';
+            const inativo = 'text-muted hover:text-ink';
+            ['add', 'remove'].forEach(t => {
+                const btn = document.getElementById('bus-adjust-tab-' + t);
+                btn.className = 'px-3 py-2 text-sm font-bold rounded-lg ' + (t === tab ? ativo : inativo);
+            });
+            document.getElementById('bus-adjust-add-form').classList.toggle('hidden', tab !== 'add');
+            document.getElementById('bus-adjust-remove-form').classList.toggle('hidden', tab !== 'remove');
+        }
+
+        function updateBusAdjustTotal() {
+            const qtd = parseInt(document.getElementById('bus-adjust-qty').value, 10) || 0;
+            const valor = parseFloat(document.getElementById('bus-adjust-amount').value) || 0;
+            document.getElementById('bus-adjust-total').textContent = brl(qtd * valor);
+        }
+
+        async function openBusAdjustModal(serial, name) {
+            const modal = document.getElementById('bus-adjust-modal');
+            if (!modal) return;
+            busAdjustName = name || serial;
+            const enc = encodeURIComponent(serial);
+            document.getElementById('bus-adjust-name').textContent = busAdjustName;
+            document.getElementById('bus-adjust-add-form').action = busAdjustRoutes.add.replace('__SERIAL__', enc);
+            document.getElementById('bus-adjust-remove-form').action = busAdjustRoutes.remove.replace('__SERIAL__', enc);
+            document.getElementById('bus-adjust-add-form').reset();
+            document.getElementById('bus-adjust-remove-form').reset();
+            updateBusAdjustTotal();
+            showBusAdjustTab('add');
+
+            const info = document.getElementById('bus-adjust-remove-info');
+            const qtd = document.getElementById('bus-adjust-remove-qty');
+            const enviar = document.getElementById('bus-adjust-remove-submit');
+            info.textContent = 'Carregando…';
+            qtd.removeAttribute('max');
+            enviar.disabled = true;
+            document.getElementById('bus-adjust-list-box').classList.add('hidden');
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            window.setTimeout(() => document.getElementById('bus-adjust-qty').focus(), 50);
+
+            try {
+                const url = busAdjustRoutes.show.replace('__SERIAL__', enc)
+                    + '?start_date=' + encodeURIComponent(busAdjustRoutes.start)
+                    + '&end_date=' + encodeURIComponent(busAdjustRoutes.end);
+                const resp = await fetch(url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.message || 'Erro ao carregar');
+
+                let texto = `<strong>${data.paid}</strong> pagamento(s) deste carro no período. `
+                    + `Podem ser excluídos: <strong>${data.removable}</strong>.`;
+                if (data.protected > 0) {
+                    texto += `<br><span class="text-[11px] text-muted">${data.protected} protegido(s): pagos nos últimos 7 dias (o passageiro pode estar navegando ou recuperar o acesso), plano em andamento ou conta administrativa.</span>`;
+                }
+                info.innerHTML = texto;
+                qtd.max = data.removable;
+                enviar.disabled = data.removable < 1;
+
+                renderBusAdjustList(data.adjustments || []);
+            } catch (e) {
+                info.textContent = 'Não foi possível carregar os dados deste carro. Feche e tente de novo.';
+            }
+        }
+
+        function renderBusAdjustList(itens) {
+            const box = document.getElementById('bus-adjust-list-box');
+            const lista = document.getElementById('bus-adjust-list');
+            lista.innerHTML = '';
+            box.classList.toggle('hidden', itens.length === 0);
+            itens.forEach(a => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between gap-3 rounded-xl bg-amber-50 px-3 py-2';
+                const txt = document.createElement('div');
+                txt.className = 'min-w-0 text-xs text-ink2';
+                txt.innerHTML = `<strong>+${a.quantity} × R$ ${brl(a.unit_amount)}</strong> = R$ ${brl(a.total)}`
+                    + `<br><span class="text-[11px] text-muted"></span>`;
+                txt.querySelector('span').textContent = [a.reference_at, a.author, a.note].filter(Boolean).join(' · ');
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'flex-shrink-0 px-2.5 py-1 text-[11px] font-bold rounded-lg ring-1 ring-black/10 text-red-700 hover:bg-white';
+                btn.textContent = 'Desfazer';
+                btn.onclick = () => undoBusAdjustment(a);
+                li.append(txt, btn);
+                lista.appendChild(li);
+            });
+        }
+
+        function undoBusAdjustment(a) {
+            if (!confirm(`Desfazer o acréscimo de ${a.quantity} pagamento(s) (R$ ${brl(a.total)}) em ${busAdjustName}?`)) return;
+            const form = document.getElementById('bus-adjust-undo-form');
+            form.action = busAdjustRoutes.undo.replace('__ID__', a.id);
+            form.submit();
+        }
+
+        function confirmBusRemove() {
+            const qtd = parseInt(document.getElementById('bus-adjust-remove-qty').value, 10) || 0;
+            return confirm(`Excluir definitivamente ${qtd} pagamento(s) de ${busAdjustName} neste período?\n\nIsso não pode ser desfeito.`);
+        }
+
+        function closeBusAdjustModal() {
+            const modal = document.getElementById('bus-adjust-modal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        document.getElementById('bus-adjust-modal')?.addEventListener('click', function(e) {
+            if (e.target === this) closeBusAdjustModal();
+        });
 
         document.getElementById('payment-edit-modal')?.addEventListener('click', function(e) {
             if (e.target === this) closePaymentEditModal();
