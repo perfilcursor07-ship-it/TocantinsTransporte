@@ -29,6 +29,9 @@ class CongelarOnibusPagamento extends Command
 
     protected $description = 'Congela o ônibus nos pagamentos que ainda não têm (payments.bus_mikrotik_id)';
 
+    /** Tempo para a viagem identificar o carro antes de travar em 'desconhecido'. */
+    private const HORAS_PARA_TRAVAR_DESCONHECIDO = 6;
+
     public function handle(): int
     {
         $aplicar = (bool) $this->option('aplicar');
@@ -53,6 +56,29 @@ class CongelarOnibusPagamento extends Command
             ->when($this->option('desde'), fn ($q, $d) => $q->whereDate('payments.created_at', '>=', $d))
             ->when($this->option('ate'), fn ($q, $d) => $q->whereDate('payments.created_at', '<=', $d))
             ->count();
+
+        // Pagamento cujo passageiro nunca foi identificado em carro nenhum. Sem
+        // trava, ele fica em "desconhecido" só até o passageiro se conectar num
+        // ônibus algum dia: aí last_mikrotik_id aparece e o pagamento antigo
+        // muda de carro num mês já fechado (o total não muda, o carro muda).
+        // Passado o prazo para a própria viagem identificar o carro, trava
+        // como 'desconhecido' — a soma do relatório lê esse valor direto.
+        $travarDesconhecidos = DB::table('payments')
+            ->whereNull('bus_mikrotik_id')
+            ->where('created_at', '<', now()->subHours(self::HORAS_PARA_TRAVAR_DESCONHECIDO))
+            ->whereIn('user_id', DB::table('users')->whereNull('last_mikrotik_id')->select('id'))
+            ->when($this->option('desde'), fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
+            ->when($this->option('ate'), fn ($q, $d) => $q->whereDate('created_at', '<=', $d));
+
+        if ($aplicar) {
+            $travados = $travarDesconhecidos->update(['bus_mikrotik_id' => 'desconhecido']);
+            if ($travados > 0) {
+                $this->info("{$travados} pagamento(s) sem ônibus travados como 'desconhecido'.");
+            }
+            $semOnibus -= $travados;
+        } elseif (($qtd = $travarDesconhecidos->count()) > 0) {
+            $this->line("{$qtd} pagamento(s) sem ônibus seriam travados como 'desconhecido'.");
+        }
 
         if ($porOnibus->isEmpty()) {
             $this->info('Nada a congelar: todos os pagamentos do filtro já têm ônibus congelado.');
