@@ -93,6 +93,7 @@
             '<div id="card-pay-panel" style="display:none">' +
                 '<p style="font-size:15px;font-weight:800;color:#111827;margin:0 0 2px">Pagar com cartão de crédito</p>' +
                 '<p style="font-size:12px;color:#6b7280;margin:0 0 10px">Crédito à vista. A internet libera assim que aprovar.</p>' +
+                '<div id="card-pay-bypass" style="display:none;font-size:13px;line-height:1.35;border-radius:10px;padding:9px 11px;margin-bottom:10px"></div>' +
                 '<div id="card-pay-msg" style="display:none;font-size:13px;border-radius:10px;padding:9px 11px;margin-bottom:10px"></div>' +
                 '<form id="card-pay-form" autocomplete="on" novalidate>' +
                     inputHtml('card-number', 'Número do cartão', 'type="text" inputmode="numeric" autocomplete="cc-number" maxlength="23" placeholder="0000 0000 0000 0000"') +
@@ -105,9 +106,7 @@
                     '<button id="card-pay-submit" type="submit" style="width:100%;background:#2563eb;color:#fff;font-weight:900;font-size:17px;border:0;border-radius:12px;padding:14px;margin-top:4px">PAGAR COM CARTÃO</button>' +
                 '</form>' +
                 '<p style="font-size:11px;color:#9ca3af;text-align:center;margin:8px 0 0">🔒 Dados criptografados no seu aparelho. Processado pelo PagBank.</p>' +
-                (mode === 'both'
-                    ? '<button id="card-pay-back" type="button" style="width:100%;background:none;border:0;color:#059669;font-weight:700;font-size:14px;padding:12px 0 2px">← Voltar para o PIX</button>'
-                    : '') +
+                '<div style="height:72px"></div>' +
             '</div>'
         );
     }
@@ -126,6 +125,49 @@
         box.style.color = colors[1];
         box.style.border = '1px solid ' + colors[2];
         box.textContent = text;
+    }
+
+    function showBypassInfo(text, kind) {
+        var box = document.getElementById('card-pay-bypass');
+        if (!box) return;
+        var colors = kind === 'warn' ? ['#fffbeb', '#92400e', '#fde68a'] : ['#ecfdf5', '#065f46', '#a7f3d0'];
+        box.style.display = 'block';
+        box.style.background = colors[0];
+        box.style.color = colors[1];
+        box.style.border = '1px solid ' + colors[2];
+        box.textContent = text;
+    }
+
+    /**
+     * Mesma liberação temporária de 3 min do PIX (mesmo endpoint, mesmo limite
+     * de 2 por hora), para o passageiro abrir o app do banco e pegar os dados
+     * do cartão virtual. Usa a função do próprio portal, sem regra nova.
+     */
+    var bypassAskedFor = null;
+    async function requestBypass() {
+        var p = portal();
+        var pid = paymentId();
+        if (!p || !pid || typeof p.detectAndBypass !== 'function' || bypassAskedFor === pid) return;
+        bypassAskedFor = pid;
+        showBypassInfo('Liberando a internet por 3 minutos para você abrir o app do banco…', 'ok');
+        try { await Promise.resolve(p.detectAndBypass(pid)); } catch (e) { /* trata abaixo */ }
+        // Se o PIX já tinha pedido a liberação, espera a resposta dele.
+        for (var i = 0; i < 12 && p._bypassMode === 'checking'; i++) {
+            await new Promise(function (r) { setTimeout(r, 1000); });
+        }
+
+        if (p._bypassMode === 'success') {
+            showBypassInfo(p._bypassAlreadyConnected
+                ? 'Sua internet já está liberada.'
+                : 'Internet liberada por 3 minutos (pode levar até 15 segundos). Se o cartão é virtual, abra o app do banco, copie os dados e volte para esta tela.', 'ok');
+        } else if (p._bypassMode === 'limit') {
+            showBypassInfo('Você já usou as 2 liberações desta hora. Para pegar o cartão virtual no app do banco, use os dados móveis (4G/5G).', 'warn');
+        } else if (p._bypassMode === 'blocked') {
+            showBypassInfo('A liberação temporária não está disponível. Use os dados móveis (4G/5G) para abrir o app do banco.', 'warn');
+        } else {
+            bypassAskedFor = null; // falhou: tenta de novo no próximo toque
+            showBypassInfo('Não foi possível liberar a internet agora. Se precisar abrir o app do banco, use os dados móveis (4G/5G).', 'warn');
+        }
     }
 
     function setBusy(busy, label) {
@@ -269,30 +311,53 @@
         step1.appendChild(panel);
         bindMasks(panel);
 
+        var tabs = null;
+        function paintTabs(active) {
+            if (!tabs) return;
+            tabs.querySelectorAll('button').forEach(function (b) {
+                var on = b.dataset.tab === active;
+                b.style.background = on ? '#2563eb' : '#fff';
+                b.style.color = on ? '#fff' : '#1f2937';
+                b.style.borderColor = on ? '#2563eb' : '#d1d5db';
+            });
+        }
         function showCard() {
             pixChildren.forEach(function (c) { c.dataset.cardPrevDisplay = c.style.display || ''; c.style.display = 'none'; });
-            if (openBtn) openBtn.style.display = 'none';
             panel.style.display = 'block';
+            paintTabs('card');
             // Adianta o carregamento do SDK enquanto a pessoa digita.
             loadSdk().catch(function () {});
         }
         function showPix() {
             panel.style.display = 'none';
             pixChildren.forEach(function (c) { c.style.display = c.dataset.cardPrevDisplay || ''; });
-            if (openBtn) openBtn.style.display = '';
+            paintTabs('pix');
         }
 
-        var openBtn = null;
         if (mode === 'both') {
-            openBtn = el(
-                '<button id="card-pay-open" type="button" style="width:100%;background:#fff;color:#1d4ed8;font-weight:800;font-size:15px;border:2px solid #2563eb;border-radius:12px;padding:12px;margin-top:10px">' +
-                '💳 Pagar com cartão de crédito</button>'
+            // Escolha da forma de pagamento no TOPO da tela, sempre visível
+            // (embaixo ficava escondida atrás do ícone do chat).
+            var tabStyle = 'flex:1;font-weight:800;font-size:15px;border:2px solid #d1d5db;border-radius:12px;padding:12px 6px;line-height:1.1';
+            tabs = el(
+                '<div id="card-pay-tabs" style="margin-bottom:12px">' +
+                    '<p style="font-size:12px;font-weight:700;color:#6b7280;margin:0 0 6px;text-align:center">Como você quer pagar?</p>' +
+                    '<div style="display:flex;gap:8px">' +
+                        '<button type="button" data-tab="pix" style="' + tabStyle + '">PIX</button>' +
+                        '<button type="button" data-tab="card" style="' + tabStyle + '">💳 Cartão de crédito</button>' +
+                    '</div>' +
+                '</div>'
             );
-            step1.appendChild(openBtn);
-            openBtn.addEventListener('click', showCard);
-            panel.querySelector('#card-pay-back').addEventListener('click', showPix);
+            step1.insertBefore(tabs, step1.firstChild);
+            paintTabs('pix');
+            tabs.querySelector('[data-tab="pix"]').addEventListener('click', showPix);
+            // Ao escolher cartão, libera os 3 min (igual ao "copiar código" do PIX).
+            tabs.querySelector('[data-tab="card"]').addEventListener('click', function () { showCard(); requestBypass(); });
         } else {
             showCard();
+            // Só cartão: não há botão de escolha, então a liberação sai no
+            // primeiro toque no formulário (nunca sozinha, sem ação da pessoa).
+            panel.addEventListener('pointerdown', requestBypass, { once: true });
+            panel.addEventListener('focusin', requestBypass, { once: true });
             modal.querySelectorAll('p').forEach(function (p) {
                 if (p.textContent.trim() === 'Pagamento PIX') p.textContent = 'Pagamento com cartão';
             });
