@@ -518,14 +518,14 @@
                         <div class="space-y-3" id="wifi-plan-options" role="radiogroup" aria-label="Escolha seu plano de WiFi">
                             @if($plan_short_enabled ?? true)
                             <!-- Plano 1 hora (compacto) -->
-                            <button type="button" data-plan-option data-plan-price="{{ $wifi_price_short ?? 5.99 }}" data-plan-duration="{{ $session_duration_short ?? 1 }}" data-plan-name="{{ $session_duration_short ?? 1 }} hora(s) de acesso" data-plan-suffix="/ hora"
+                            <button type="button" data-plan-option data-plan-price="{{ $wifi_price_short ?? 6.99 }}" data-plan-duration="{{ $session_duration_short ?? 1 }}" data-plan-name="{{ $session_duration_short ?? 1 }} hora(s) de acesso" data-plan-suffix="/ hora"
                                 class="wifi-plan-card flex w-full items-center gap-3 border-2 border-gray-200 bg-white px-4 py-3.5 text-left hover:border-green/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-green/30">
                                 <span data-plan-radio class="h-5 w-5 rounded-full border-2 border-gray-300 bg-white flex-shrink-0 transition-all duration-200"></span>
                                 <div class="min-w-0 flex-1">
                                     <p class="text-base font-extrabold text-ink leading-tight">{{ $session_duration_short ?? 1 }} hora de internet</p>
                                     <p class="text-[13px] text-gray-600 leading-tight mt-1">Para uma parada rápida</p>
                                 </div>
-                                <p data-plan-price-display class="text-xl font-black text-ink tracking-tight whitespace-nowrap">R${{ number_format($wifi_price_short ?? 5.99, 2, ',', '.') }}</p>
+                                <p data-plan-price-display class="text-xl font-black text-ink tracking-tight whitespace-nowrap">R${{ number_format($wifi_price_short ?? 6.99, 2, ',', '.') }}</p>
                             </button>
                             @endif
 
@@ -533,7 +533,7 @@
                             <!-- Plano Viagem Completa (PRÉ-SELECIONADO) -->
                             <div class="relative pt-3">
                                 <div class="plan-tag left-4 price-pill">⭐ Mais escolhido</div>
-                                <button type="button" data-plan-option data-plan-price="{{ $wifi_price_full ?? 6.99 }}" data-plan-duration="{{ $session_duration ?? 12 }}" data-plan-name="Viagem completa" data-plan-suffix="/ {{ $session_duration ?? 12 }} horas" data-plan-default="true"
+                                <button type="button" data-plan-option data-plan-price="{{ $wifi_price_full ?? 7.99 }}" data-plan-duration="{{ $session_duration ?? 12 }}" data-plan-name="Viagem completa" data-plan-suffix="/ {{ $session_duration ?? 12 }} horas" data-plan-default="true"
                                     class="wifi-plan-card plan-card-selected relative flex w-full items-center gap-3 border-2 px-4 pt-5 pb-4 text-left hover:shadow-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-green/30">
                                     <span data-plan-radio class="h-5 w-5 rounded-full border-[4px] border-green bg-white flex-shrink-0 transition-all duration-200"></span>
                                     <div class="min-w-0 flex-1">
@@ -542,7 +542,7 @@
                                     </div>
                                     <div class="text-right flex-shrink-0">
                                         <p class="text-[12px] text-gray-500 leading-none">de <span class="line-through">R${{ number_format($original_price ?? 9.99, 2, ',', '.') }}</span></p>
-                                        <p data-plan-price-display class="text-[26px] font-black text-green-dark tracking-tight leading-none mt-1 whitespace-nowrap">R${{ number_format($wifi_price_full ?? 6.99, 2, ',', '.') }}</p>
+                                        <p data-plan-price-display class="text-[26px] font-black text-green-dark tracking-tight leading-none mt-1 whitespace-nowrap">R${{ number_format($wifi_price_full ?? 7.99, 2, ',', '.') }}</p>
                                     </div>
                                 </button>
                             </div>
@@ -947,7 +947,7 @@
 
             el('loading-overlay')?.classList.add('hidden');
 
-            const price = window.WIFI_PRICE || 6.99;
+            const price = window.WIFI_PRICE || 7.99;
             const normalEl = el('discount-choice-normal-price');
             if (normalEl) normalEl.textContent = 'Pagar R$' + price.toFixed(2).replace('.', ',');
 
@@ -1669,7 +1669,7 @@
                     <button id="close-modal" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition-colors">&times;</button>
                 </div>
                 <div class="bg-emerald-50 rounded-xl p-5 mb-5 text-center border border-emerald-100">
-                    <p id="selected-plan-price" class="text-3xl font-extrabold text-emerald-700">R$6,99</p>
+                    <p id="selected-plan-price" class="text-3xl font-extrabold text-emerald-700">R$7,99</p>
                     <p id="selected-plan-name" class="text-sm text-emerald-600 mt-1">Viagem completa / {{ $session_duration ?? 12 }} horas de acesso</p>
                 </div>
                 <label class="flex items-start gap-3 rounded-xl bg-emerald-50 border-2 border-emerald-200 p-3 mb-4 cursor-pointer has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-100/60 transition-colors">
@@ -1724,7 +1724,7 @@
     <script>
         window.PORTAL_MAC = @json(request('mac') ?: request('mikrotik_mac') ?: request('client_mac'));
         window.PORTAL_IP = @json(request('ip') ?: request('client_ip'));
-        window.WIFI_PRICE = {{ ($plan_full_enabled ?? true) ? ($wifi_price_full ?? 6.99) : ($wifi_price_short ?? 5.99) }};
+        window.WIFI_PRICE = {{ ($plan_full_enabled ?? true) ? ($wifi_price_full ?? 7.99) : ($wifi_price_short ?? 6.99) }};
         window.SESSION_DURATION = {{ ($plan_full_enabled ?? true) ? ($session_duration ?? 12) : ($session_duration_short ?? 1) }};
         window.WIFI_SELECTED_PLAN = null;
 

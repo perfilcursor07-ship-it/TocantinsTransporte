@@ -11,13 +11,14 @@ class SettingsController extends Controller
 {
     public function index()
     {
-        $legacyIntervalPrice12h = (float) SystemSetting::getValue('plan_interval_price_12h', '6.99');
+        $legacyIntervalPrice12h = SystemSetting::getValue('plan_interval_price_12h', null);
+        $defaultIntervalPrice24h = $legacyIntervalPrice12h !== null ? (string) round((float) $legacyIntervalPrice12h * 2, 2) : '15.98';
         $settings = [
             'plan_interval_enabled' => SystemSetting::getValue('plan_interval_enabled', '0'),
             'plan_interval_max_days' => SystemSetting::getValue('plan_interval_max_days', '30'),
-            'plan_interval_price_24h' => SystemSetting::getValue('plan_interval_price_24h', (string) ($legacyIntervalPrice12h * 2)),
-            'wifi_price' => SystemSetting::getValue('wifi_price', '5.99'),
-            'wifi_price_full' => SystemSetting::getValue('wifi_price_full', '6.99'),
+            'plan_interval_price_24h' => SystemSetting::getValue('plan_interval_price_24h', $defaultIntervalPrice24h),
+            'wifi_price' => SystemSetting::getValue('wifi_price', '6.99'),
+            'wifi_price_full' => SystemSetting::getValue('wifi_price_full', '7.99'),
             'pix_gateway' => SystemSetting::getValue('pix_gateway', 'pagbank'),
             'session_duration' => SystemSetting::getValue('session_duration', '12'),
             'session_duration_short' => SystemSetting::getValue('session_duration_short', '1'),
@@ -29,7 +30,7 @@ class SettingsController extends Controller
             'pagbank_account' => SystemSetting::getValue('pagbank_account', 'junior'),
             'pagbank_email' => SystemSetting::getValue('pagbank_email', 'juniormoreiragloboplay@gmail.com'),
             'pagbank_token' => SystemSetting::getValue('pagbank_token', 'c75a2308-ec9d-4825-94fd-bacba8a7248344f58a634d1b857348dba39f6a5b6c957b2a-2890-4da4-9866-af24b6eee984'),
-            'video_discount_enabled' => SystemSetting::getValue('video_discount_enabled', '1'),
+            'video_discount_enabled' => SystemSetting::getValue('video_discount_enabled', '0'),
             'video_discount_amount' => SystemSetting::getValue('video_discount_amount', '1.00'),
             'cashcash_min_seconds' => SystemSetting::getValue('cashcash_min_seconds', '20'),
             'plan_short_currently_active' => \App\Helpers\SettingsHelper::isPlanShortCurrentlyActive(),

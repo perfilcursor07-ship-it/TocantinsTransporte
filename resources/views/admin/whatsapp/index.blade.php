@@ -102,6 +102,95 @@
         </div>
     </div>
 
+    <!-- Resultado dos lembretes -->
+    @if($insights['ok'])
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <span class="text-2xl">📈</span>
+                    Resultado dos lembretes
+                    <span class="text-sm font-normal text-gray-500">últimos 30 dias</span>
+                </h2>
+            </div>
+
+            @if(!$insights['feature_enabled'])
+                <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    <strong>Lembrete automático desligado</strong> nas configurações do sistema. Nenhum PIX abandonado está sendo lembrado.
+                </div>
+            @elseif(!$settings['auto_send_enabled'])
+                <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    <strong>Envio automático desativado.</strong> Ative em <a class="underline" href="{{ route('admin.whatsapp.settings') }}">Configurações</a> para lembrar quem gerou PIX e não pagou.
+                </div>
+            @elseif($insights['run_is_stale'])
+                <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    <strong>O lembrete automático não está rodando.</strong>
+                    @if($insights['last_run_at'])
+                        Última execução {{ $insights['last_run_at']->diffForHumans() }} ({{ $insights['last_run_at']->format('d/m H:i') }}).
+                    @else
+                        Ainda não há registro de execução.
+                    @endif
+                    Ele deveria rodar a cada 5 minutos. Confira no servidor se o agendador do Laravel está ativo
+                    (<code class="bg-red-100 px-1 rounded">* * * * * php artisan schedule:run</code> no cron).
+                </div>
+            @else
+                <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                    Lembrete automático rodando — última execução {{ $insights['last_run_at']->diffForHumans() }}:
+                    {{ $insights['last_run_result'] }}.
+                </div>
+            @endif
+
+            @if($insights['last_reminder_at'] && $insights['last_reminder_at']->lt(now()->subDays(2)) && $insights['waiting_count'] > 0)
+                <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    O último lembrete saiu em <strong>{{ $insights['last_reminder_at']->format('d/m/Y H:i') }}</strong>
+                    ({{ $insights['last_reminder_at']->diffForHumans() }}), mas há PIX abandonados todos os dias.
+                </div>
+            @endif
+
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div class="bg-gray-50 rounded-xl p-4">
+                    <p class="text-xs text-gray-500 mb-1">Lembretes enviados</p>
+                    <p class="text-2xl font-bold text-gray-800">{{ $insights['sent'] }}</p>
+                    <p class="text-xs text-gray-500">{{ $insights['delivered'] }} entregues</p>
+                </div>
+                <div class="bg-gray-50 rounded-xl p-4">
+                    <p class="text-xs text-gray-500 mb-1">Pagaram em até 24h</p>
+                    <p class="text-2xl font-bold text-green-600">
+                        {{ $insights['converted'] }}
+                        @if($insights['sent'] > 0)
+                            <span class="text-sm font-medium text-gray-500">({{ number_format($insights['converted'] / $insights['sent'] * 100, 0) }}%)</span>
+                        @endif
+                    </p>
+                    <p class="text-xs text-gray-500">R$ {{ number_format($insights['revenue'], 2, ',', '.') }} depois do lembrete</p>
+                    <p class="text-xs text-gray-500">
+                        @if($insights['pix_code_enabled'])
+                            {{ $insights['paid_with_code'] }} pelo código PIX do WhatsApp
+                        @else
+                            código PIX no lembrete desligado
+                        @endif
+                    </p>
+                </div>
+                <div class="bg-gray-50 rounded-xl p-4">
+                    <p class="text-xs text-gray-500 mb-1">Aguardando lembrete agora</p>
+                    <p class="text-2xl font-bold text-yellow-600">{{ $insights['waiting_count'] }}</p>
+                    <p class="text-xs text-gray-500">R$ {{ number_format($insights['waiting_amount'], 2, ',', '.') }} em PIX de hoje, com autorização</p>
+                </div>
+                <div class="bg-gray-50 rounded-xl p-4">
+                    <p class="text-xs text-gray-500 mb-1">Proteção contra bloqueio</p>
+                    <p class="text-2xl font-bold {{ $insights['sent_today'] >= $insights['cap'] ? 'text-red-600' : 'text-gray-800' }}">{{ $insights['sent_today'] }}<span class="text-sm font-medium text-gray-500"> / {{ $insights['cap'] }} hoje</span></p>
+                    <p class="text-xs {{ $insights['opt_outs'] > 0 && $insights['sent'] > 0 && $insights['opt_outs'] / $insights['sent'] > 0.05 ? 'text-red-600 font-medium' : 'text-gray-500' }}">
+                        {{ $insights['opt_outs'] }} pediram PARAR · silêncio {{ $insights['quiet_label'] }}{{ $insights['is_quiet'] ? ' (agora)' : '' }}
+                    </p>
+                </div>
+            </div>
+            <p class="text-xs text-gray-400 mt-3">
+                "Pagaram em até 24h" conta quem concluiu um pagamento depois de receber o lembrete; parte deles pagaria de qualquer forma.
+                Muitos pedidos de PARAR em relação aos envios (acima de 5%) é sinal de risco: reduza o limite diário.
+            </p>
+        </div>
+    </div>
+    @endif
+
     <!-- Pagamentos Pendentes -->
     <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
         <div class="p-6">
@@ -530,21 +619,22 @@ async function sendToAllPending() {
 
 // Enviar mensagem individual
 async function sendSingleMessage(phone, userId, paymentId) {
-    if (!confirm(`Enviar mensagem para ${phone}?`)) return;
+    // Com paymentId é lembrete de PIX: o servidor monta o mesmo texto do envio
+    // automático e aplica horário de silêncio, limite diário e trava de 24h.
+    const isReminder = !!paymentId;
+    if (!confirm(isReminder ? `Enviar o lembrete de PIX para ${phone}?` : `Enviar mensagem para ${phone}?`)) return;
 
     try {
         const response = await fetch('{{ route("admin.whatsapp.send") }}', {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
-            body: JSON.stringify({
-                phone: phone,
-                message: document.getElementById('modal-message')?.value || `{{ $settings['message_template'] }}`,
-                user_id: userId,
-                payment_id: paymentId
-            })
+            body: JSON.stringify(isReminder
+                ? { phone: phone, user_id: userId, payment_id: paymentId }
+                : { phone: phone, message: document.getElementById('modal-message')?.value || '', user_id: userId })
         });
         
         const data = await response.json();

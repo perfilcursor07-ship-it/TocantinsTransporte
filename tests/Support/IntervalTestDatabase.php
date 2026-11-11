@@ -29,6 +29,8 @@ class IntervalTestDatabase
             $t->string('payment_type'); $t->string('status'); $t->string('transaction_id')->nullable();
             $t->string('gateway_payment_id')->nullable(); $t->text('pix_emv_string')->nullable();
             $t->text('pix_location')->nullable(); $t->json('payment_data')->nullable();
+            // O model grava este campo em todo pagamento criado (ônibus congelado).
+            $t->string('bus_mikrotik_id')->nullable();
             $t->dateTime('paid_at')->nullable(); $t->timestamps();
         });
         Schema::create('temp_bypass_logs', function (Blueprint $t) {

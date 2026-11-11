@@ -2,15 +2,18 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Console\Commands\SendUnpaidPaymentReminders;
 use App\Http\Controllers\Controller;
 use App\Models\WhatsappMessage;
 use App\Models\WhatsappOptOut;
 use App\Models\WhatsappSetting;
 use App\Models\Payment;
 use App\Models\User;
+use App\Services\UnpaidReminderSender;
 use App\Services\WhatsappClient;
 use App\Services\WhatsappSendPolicy;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
@@ -79,7 +82,96 @@ class WhatsappController extends Controller
             ->get()
             ->unique('user_id'); // Mostrar apenas 1 pagamento por usuário
 
-        return view('admin.whatsapp.index', compact('stats', 'recentMessages', 'settings', 'pendingPayments'));
+        $insights = $this->reminderInsights($pendingPayments);
+
+        return view('admin.whatsapp.index', compact('stats', 'recentMessages', 'settings', 'pendingPayments', 'insights'));
+    }
+
+    /**
+     * Números do painel "Resultado dos lembretes": quanto foi enviado, quanto
+     * voltou em venda e os sinais de risco de bloqueio. É só leitura; se algo
+     * falhar, a página abre sem o painel.
+     */
+    protected function reminderInsights($pendingPayments): array
+    {
+        $insights = [
+            'ok' => false,
+            'sent' => 0, 'delivered' => 0, 'converted' => 0, 'revenue' => 0.0,
+            'opt_outs' => 0, 'last_reminder_at' => null, 'paid_with_code' => 0, 'pix_code_enabled' => false,
+            'last_run_at' => null, 'last_run_result' => null, 'run_is_stale' => true,
+            'feature_enabled' => false,
+            'cap' => 0, 'sent_today' => 0, 'quiet_label' => '', 'is_quiet' => false,
+            'waiting_count' => 0, 'waiting_amount' => 0.0,
+        ];
+
+        try {
+            $since = Carbon::now()->subDays(30);
+
+            $reminders = WhatsappMessage::reminders()
+                ->where('created_at', '>=', $since)
+                ->whereIn('status', ['sent', 'delivered', 'read'])
+                ->get(['id', 'user_id', 'status', 'created_at']);
+
+            // Vendas depois do lembrete: pagamento concluído do mesmo passageiro
+            // em até 24h. É correlação (ele poderia ter pago de qualquer jeito),
+            // mas é a medida que mostra se o texto está funcionando.
+            $paidByUser = Payment::where('status', 'completed')
+                ->where('paid_at', '>=', $since)
+                ->whereIn('user_id', $reminders->pluck('user_id')->filter()->unique())
+                ->get(['id', 'user_id', 'amount', 'paid_at'])
+                ->groupBy('user_id');
+
+            $recovered = [];
+            $converted = 0;
+            foreach ($reminders as $reminder) {
+                $hit = false;
+                foreach ($paidByUser->get($reminder->user_id, []) as $paid) {
+                    $paidAt = $paid->paid_at ? Carbon::parse($paid->paid_at) : null;
+                    if ($paidAt && $paidAt->gt($reminder->created_at)
+                        && $paidAt->lte($reminder->created_at->copy()->addHours(24))) {
+                        $recovered[$paid->id] = (float) $paid->amount;
+                        $hit = true;
+                    }
+                }
+                $converted += $hit ? 1 : 0;
+            }
+
+            $lastRunAt = WhatsappSetting::get('reminder_last_run_at');
+            $lastRun = $lastRunAt ? Carbon::parse($lastRunAt) : null;
+            $lastReminder = WhatsappMessage::reminders()->max('created_at');
+            $waiting = $pendingPayments->filter(fn ($p) => $p->user && $p->user->hasWhatsappPaymentOptIn());
+
+            $insights = array_merge($insights, [
+                'ok' => true,
+                'sent' => $reminders->count(),
+                'delivered' => $reminders->whereIn('status', ['delivered', 'read'])->count(),
+                'converted' => $converted,
+                'revenue' => array_sum($recovered),
+                'opt_outs' => WhatsappOptOut::where('opted_out_at', '>=', $since)->count(),
+                // Atribuição exata: cobranças criadas pelo lembrete e pagas.
+                'paid_with_code' => Payment::where('status', 'completed')
+                    ->where('paid_at', '>=', $since)
+                    ->where('payment_data->source', 'whatsapp_reminder')
+                    ->count(),
+                'pix_code_enabled' => UnpaidReminderSender::pixCodeEnabled(),
+                'last_reminder_at' => $lastReminder ? Carbon::parse($lastReminder) : null,
+                'last_run_at' => $lastRun,
+                'last_run_result' => WhatsappSetting::get('reminder_last_run_result'),
+                // O comando roda a cada 5 min; 20 min sem sinal = agendador parado.
+                'run_is_stale' => ! $lastRun || $lastRun->lt(Carbon::now()->subMinutes(20)),
+                'feature_enabled' => (bool) \App\Models\SystemSetting::getValue('unpaid_reminder_enabled', '0'),
+                'cap' => WhatsappSendPolicy::dailyCap(),
+                'sent_today' => WhatsappSendPolicy::remindersSentToday(),
+                'quiet_label' => WhatsappSendPolicy::quietLabel(),
+                'is_quiet' => WhatsappSendPolicy::isQuietTime(),
+                'waiting_count' => $waiting->count(),
+                'waiting_amount' => (float) $waiting->sum('amount'),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Painel de lembretes do WhatsApp indisponível', ['erro' => $e->getMessage()]);
+        }
+
+        return $insights;
     }
 
     /**
@@ -124,6 +216,7 @@ class WhatsappController extends Controller
             'quiet_end_hour' => WhatsappSendPolicy::quietEndHour(),
             'daily_reminder_cap' => WhatsappSendPolicy::dailyCap(),
             'reminders_today' => WhatsappSendPolicy::remindersSentToday(),
+            'reminder_pix_code_enabled' => UnpaidReminderSender::pixCodeEnabled(),
         ];
 
         return view('admin.whatsapp.settings', compact('settings'));
@@ -141,6 +234,7 @@ class WhatsappController extends Controller
             'quiet_start_hour' => 'required|integer|min:0|max:23',
             'quiet_end_hour' => 'required|integer|min:0|max:23',
             'daily_reminder_cap' => 'required|integer|min:1|max:200',
+            'reminder_pix_code_enabled' => 'nullable|boolean',
         ]);
 
         WhatsappSetting::set('quiet_start_hour', (int) $request->quiet_start_hour);
@@ -149,6 +243,7 @@ class WhatsappController extends Controller
         WhatsappSetting::set('pending_minutes', $request->pending_minutes);
         WhatsappSetting::set('message_template', $request->message_template);
         WhatsappSetting::set('auto_send_enabled', $request->has('auto_send_enabled') ? 'true' : 'false');
+        WhatsappSetting::set('reminder_pix_code_enabled', $request->has('reminder_pix_code_enabled') ? 'true' : 'false');
 
         return redirect()->back()->with('success', 'Configurações atualizadas com sucesso!');
     }
@@ -414,11 +509,25 @@ HTML;
     public function sendMessage(Request $request)
     {
         $request->validate([
-            'phone' => 'required|string',
-            'message' => 'required|string|max:1000',
+            'phone' => 'required_without:payment_id|nullable|string',
+            'message' => 'required_without:payment_id|nullable|string|max:1000',
             'user_id' => 'nullable|exists:users,id',
             'payment_id' => 'nullable|exists:payments,id',
         ]);
+
+        // Botão "Enviar" da lista de pendentes: é um lembrete de PIX, então
+        // segue as mesmas regras e o mesmo texto do envio automático. Antes
+        // ele mandava o modelo antigo (preço e link errados, sem PARAR) e
+        // ignorava horário de silêncio, teto diário e a trava de 24h.
+        if ($request->filled('payment_id')) {
+            [$status, $body] = $this->sendManualReminder(Payment::with('user')->find($request->payment_id));
+
+            return response()->json($body, $status);
+        }
+
+        if (WhatsappOptOut::isOptedOut($request->phone)) {
+            return response()->json(['error' => 'Este número pediu para não receber mais mensagens (PARAR).'], 422);
+        }
 
         $phone = WhatsappMessage::formatPhone($request->phone);
         $user = $request->user_id ? User::find($request->user_id) : null;
@@ -464,6 +573,86 @@ HTML;
     }
 
     /**
+     * Lembrete manual de um PIX pendente, com as proteções do automático.
+     *
+     * @return array{0:int,1:array<string,mixed>} [status HTTP, corpo JSON]
+     */
+    protected function sendManualReminder(?Payment $payment): array
+    {
+        if (! WhatsappSetting::isConnected()) {
+            return [400, ['error' => 'WhatsApp não está conectado']];
+        }
+
+        $user = $payment?->user;
+        if (! $payment || ! $user || ! $user->phone) {
+            return [422, ['error' => 'Pagamento sem passageiro ou sem telefone.']];
+        }
+        if ($payment->status !== 'pending') {
+            return [422, ['error' => 'Este pagamento não está mais pendente.']];
+        }
+        if (! $user->hasWhatsappPaymentOptIn() || WhatsappOptOut::isOptedOut($user->phone)) {
+            return [422, ['error' => 'Este passageiro não autorizou atualizações de pagamento pelo WhatsApp.']];
+        }
+        if (WhatsappSendPolicy::isQuietTime()) {
+            return [422, ['error' => 'Fora do horário de envio. Lembretes não são enviados das '
+                . WhatsappSendPolicy::quietLabel() . ' para evitar denúncias.']];
+        }
+        if (WhatsappSendPolicy::remainingToday() === 0) {
+            return [422, ['error' => 'Limite diário de lembretes atingido ('
+                . WhatsappSendPolicy::dailyCap() . '). Tente amanhã.']];
+        }
+        if ($this->remindedInLast24h($user)) {
+            return [422, ['error' => 'Este passageiro já recebeu mensagem nas últimas 24h. Insistir é o que mais gera bloqueio.']];
+        }
+
+        WhatsappSendPolicy::recordReminder();
+        $this->lockReminder($payment, $user);
+
+        try {
+            $result = app(UnpaidReminderSender::class)->send($user, $payment, 30);
+        } catch (\Throwable $e) {
+            return [500, ['error' => $e->getMessage()]];
+        }
+
+        if (! $result['ok']) {
+            return [500, ['error' => $result['error'] ?: 'Falha ao enviar mensagem']];
+        }
+
+        return [200, [
+            'success' => true,
+            'message' => $result['with_code'] ? 'Lembrete enviado com um código PIX novo!' : 'Lembrete enviado com sucesso!',
+            'data' => $result['message']?->fresh(),
+        ]];
+    }
+
+    /** O passageiro já recebeu mensagem nossa (manual ou automática) em 24h? */
+    protected function remindedInLast24h(User $user): bool
+    {
+        if (Cache::has(SendUnpaidPaymentReminders::phoneLockKey($user->phone))) {
+            return true;
+        }
+
+        return WhatsappMessage::where('user_id', $user->id)
+            ->whereIn('status', ['sent', 'delivered', 'read'])
+            ->where('created_at', '>=', Carbon::now()->subHours(24))
+            ->exists();
+    }
+
+    /**
+     * Marca o pagamento e o telefone como "já lembrados", para o envio
+     * automático não mandar um segundo lembrete por cima do manual.
+     */
+    protected function lockReminder(Payment $payment, User $user): void
+    {
+        try {
+            $payment->forceFill(['unpaid_reminder_sent_at' => now()])->saveQuietly();
+            Cache::put(SendUnpaidPaymentReminders::phoneLockKey($user->phone), true, now()->addHours(24));
+        } catch (\Throwable $e) {
+            Log::warning('Não foi possível travar o lembrete manual', ['payment_id' => $payment->id, 'erro' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * Enviar mensagens para todos os pagamentos pendentes
      */
     public function sendToPendingPayments()
@@ -489,7 +678,6 @@ HTML;
         $maxPerRun = min(10, WhatsappSendPolicy::remainingToday());
 
         $pendingMinutes = max(15, WhatsappSetting::getPendingMinutes());
-        $messageTemplate = WhatsappSetting::getMessageTemplate();
 
         // IDs de usuários que já pagaram nas últimas 24 horas
         $paidUserIds = Payment::where('status', 'completed')
@@ -517,8 +705,6 @@ HTML;
         $skipped = 0;
         $batchCount = 0;
 
-        $optOutFooter = "\n\nTeve algum problema? Responda aqui.\n\n_Não quer mais receber? Responda *PARAR*._";
-
         foreach ($pendingPayments as $payment) {
             // Teto por execução (tentativas, inclusive falhas) para limitar o
             // contato iniciado pela empresa e respeitar o limite diário.
@@ -539,57 +725,26 @@ HTML;
                 continue;
             }
 
-            // Verificar se já enviou mensagem para este USUÁRIO nas últimas 24 horas
-            $alreadySent = WhatsappMessage::where('user_id', $payment->user_id)
-                ->whereIn('status', ['sent', 'delivered', 'read'])
-                ->where('created_at', '>=', Carbon::now()->subHours(24))
-                ->exists();
-
-            if ($alreadySent) {
+            // Já recebeu mensagem (manual ou automática) nas últimas 24 horas?
+            if ($this->remindedInLast24h($payment->user)) {
                 $skipped++;
                 continue;
             }
 
-            $phone = WhatsappMessage::formatPhone($payment->user->phone);
-            
-            // Personalizar mensagem com dados do usuário
-            $message = str_replace(
-                ['{nome}', '{valor}', '{telefone}'],
-                [$payment->user->name ?? 'Cliente', number_format($payment->amount, 2, ',', '.'), $payment->user->phone],
-                $messageTemplate
-            );
-
-            $message .= $optOutFooter;
-
-            // Criar registro
-            $whatsappMessage = WhatsappMessage::create([
-                'user_id' => $payment->user_id,
-                'payment_id' => $payment->id,
-                'phone' => $phone,
-                'message' => $message,
-                'status' => 'pending',
-            ]);
-
             // 🛡️ Ritmo humano: pausa aleatória entre envios (não fixa).
             if ($batchCount > 0) {
-                WhatsappSendPolicy::pauseBetweenSends(2, 5);
+                WhatsappSendPolicy::pauseBetweenSends(3, 8);
             }
             $batchCount++;
             WhatsappSendPolicy::recordReminder();
+            $this->lockReminder($payment, $payment->user);
 
+            // Mesmo lembrete do automático (aviso + código PIX novo, ou só o
+            // aviso com o link do portal se a cobrança não puder ser gerada).
             try {
-                $response = WhatsappClient::send($phone, $message, [], 30);
-
-                if ($response->successful()) {
-                    $data = $response->json();
-                    $whatsappMessage->markAsSent($data['messageId'] ?? null);
-                    $sent++;
-                } else {
-                    $whatsappMessage->markAsFailed($response->body());
-                    $failed++;
-                }
-            } catch (\Exception $e) {
-                $whatsappMessage->markAsFailed($e->getMessage());
+                $result = app(UnpaidReminderSender::class)->send($payment->user, $payment, 30);
+                $result['ok'] ? $sent++ : $failed++;
+            } catch (\Throwable $e) {
                 $failed++;
             }
         }

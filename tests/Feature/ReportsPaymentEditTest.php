@@ -66,6 +66,7 @@ class ReportsPaymentEditTest extends TestCase
             $table->decimal('amount', 10, 2);
             $table->string('payment_type');
             $table->string('status');
+            $table->string('bus_mikrotik_id')->nullable();
             $table->json('payment_data')->nullable();
             $table->dateTime('paid_at')->nullable();
             $table->timestamps();

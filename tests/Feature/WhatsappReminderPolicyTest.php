@@ -57,6 +57,9 @@ class WhatsappReminderPolicyTest extends TestCase
         \App\Models\SystemSetting::setValue('unpaid_reminder_enabled', '1');
         WhatsappSetting::set('is_connected', 'true');
         WhatsappSetting::set('auto_send_enabled', 'true');
+        // Código PIX no lembrete desligado por padrão aqui; os testes que o
+        // exercitam ligam com fakePagBank().
+        WhatsappSetting::set('reminder_pix_code_enabled', 'false');
         Http::preventStrayRequests();
         Http::fake(['*/send' => Http::response(['messageId' => 'MSG'], 200)]);
         Sleep::fake();
@@ -160,6 +163,172 @@ class WhatsappReminderPolicyTest extends TestCase
         $this->assertSame(422, $response->getStatusCode());
         $this->assertStringContainsString('22h às 07h', $response->getData(true)['error']);
         $this->assertSame(0, WhatsappMessage::count());
+    }
+
+    private function manualSend(Payment $payment): \Illuminate\Http\JsonResponse
+    {
+        return app(WhatsappController::class)->sendMessage(\Illuminate\Http\Request::create('/admin/whatsapp/send', 'POST', [
+            'phone' => $payment->user->phone, 'user_id' => $payment->user_id, 'payment_id' => $payment->id,
+        ]));
+    }
+
+    public function test_manual_button_sends_the_automatic_text_once_and_cron_does_not_repeat_it(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-10 19:30:00', 'America/Araguaina'));
+        $payment = $this->unpaid(1);
+
+        $this->assertSame(200, $this->manualSend($payment)->getStatusCode());
+        $message = WhatsappMessage::sole();
+        $this->assertSame(SendUnpaidPaymentReminders::buildReminderMessage($payment->user, $payment), $message->message);
+        $this->assertStringContainsString('PARAR', $message->message);
+        $this->assertStringNotContainsString('5,99', $message->message);
+        $this->assertSame(1, WhatsappSendPolicy::remindersSentToday());
+        $this->assertNotNull($payment->fresh()->unpaid_reminder_sent_at);
+
+        // Clicar de novo não manda segunda mensagem, e o automático também não.
+        $this->assertSame(422, $this->manualSend($payment)->getStatusCode());
+        $this->runReminders();
+        $this->assertSame(1, WhatsappMessage::count());
+    }
+
+    public function test_manual_button_respects_quiet_hours_and_daily_cap(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-10 02:00:00', 'America/Araguaina'));
+        $payment = $this->unpaid(1);
+        $this->assertSame(422, $this->manualSend($payment)->getStatusCode());
+
+        Carbon::setTestNow(Carbon::parse('2026-09-10 19:30:00', 'America/Araguaina'));
+        WhatsappSetting::set('daily_reminder_cap', 1);
+        $this->assertSame(200, $this->manualSend($this->unpaid(2))->getStatusCode());
+        $this->assertSame(422, $this->manualSend($this->unpaid(3))->getStatusCode());
+        $this->assertSame(1, WhatsappMessage::count());
+        Http::assertSentCount(1);
+    }
+
+    public function test_command_records_last_run_and_panel_counts_sales_after_reminder(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-10 19:30:00', 'America/Araguaina'));
+        $payment = $this->unpaid(1);
+        $this->unpaid(2);
+        $this->runReminders();
+        $this->assertSame('2026-09-10 19:30:00', WhatsappSetting::get('reminder_last_run_at'));
+        $this->assertStringContainsString('2 enviados', WhatsappSetting::get('reminder_last_run_result'));
+
+        // Passageiro 1 gera outro PIX e paga 40 min depois do lembrete.
+        Carbon::setTestNow(Carbon::parse('2026-09-10 20:10:00', 'America/Araguaina'));
+        Payment::create(['user_id' => $payment->user_id, 'amount' => 6.99, 'payment_type' => 'pix',
+            'status' => 'completed', 'paid_at' => now()]);
+
+        $insights = app(WhatsappController::class)->index()->getData()['insights'];
+        $this->assertTrue($insights['ok']);
+        $this->assertSame(2, $insights['sent']);
+        $this->assertSame(1, $insights['converted']);
+        $this->assertEqualsWithDelta(6.99, $insights['revenue'], 0.001);
+        $this->assertTrue($insights['run_is_stale'], '40 min sem rodar deve acender o alerta.');
+
+        $this->runReminders();
+        $this->assertFalse(app(WhatsappController::class)->index()->getData()['insights']['run_is_stale']);
+    }
+
+    /** Liga o código PIX no lembrete e troca o PagBank por um falso (nenhuma chamada real). */
+    private function fakePagBank(bool $works = true): void
+    {
+        WhatsappSetting::set('reminder_pix_code_enabled', 'true');
+        \App\Models\SystemSetting::setValue('pix_gateway', 'pagbank');
+        $this->app->bind(\App\Services\PagBankPixService::class, fn () => new class($works)
+        {
+            public function __construct(private bool $works)
+            {
+            }
+
+            public function createPixPayment(float $amount, string $description, ?string $referenceId = null): array
+            {
+                return $this->works
+                    ? ['success' => true, 'order_id' => 'ORDE_'.$referenceId, 'reference_id' => $referenceId,
+                        'qr_code_text' => '00020126580014br.gov.bcb.pix'.$referenceId, 'amount' => $amount]
+                    : ['success' => false, 'message' => 'PagBank fora do ar'];
+            }
+        });
+    }
+
+    public function test_reminder_carries_a_fresh_pix_charge_and_never_reminds_about_it(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-10 19:30:00', 'America/Araguaina'));
+        $this->fakePagBank();
+        $payment = $this->unpaid(1);
+        $payment->update(['payment_data' => ['plan_name' => 'Viagem completa', 'duration_hours' => 12]]);
+
+        $this->runReminders();
+
+        // Cobrança nova: mesmo passageiro, valor e plano; achável pelo webhook.
+        $fresh = Payment::where('id', '!=', $payment->id)->sole();
+        $this->assertSame('pending', $fresh->status);
+        $this->assertSame($payment->user_id, $fresh->user_id);
+        $this->assertEqualsWithDelta(6.99, (float) $fresh->amount, 0.001);
+        $this->assertSame(12, $fresh->payment_data['duration_hours']);
+        $this->assertSame('whatsapp_reminder', $fresh->payment_data['source']);
+        $this->assertSame($payment->id, $fresh->payment_data['reminder_of_payment_id']);
+        $this->assertSame('ORDE_'.$fresh->transaction_id, $fresh->gateway_payment_id);
+        $this->assertSame($fresh->transaction_id, $fresh->pix_location);
+        $this->assertNotNull($fresh->unpaid_reminder_sent_at);
+        $this->assertNotNull($payment->fresh()->unpaid_reminder_sent_at);
+
+        // Duas mensagens: aviso e, depois, só o código.
+        $messages = WhatsappMessage::orderBy('id')->get();
+        $this->assertCount(2, $messages);
+        $this->assertStringContainsString('R$ 6,99', $messages[0]->message);
+        $this->assertStringContainsString('PARAR', $messages[0]->message);
+        $this->assertMatchesRegularExpression('/copi/i', $messages[0]->message);
+        $this->assertSame($fresh->pix_emv_string, $messages[1]->message);
+        $this->assertSame($fresh->id, $messages[1]->payment_id);
+        $this->assertSame('sent', $messages[1]->status);
+
+        // Conta como UM lembrete no teto diário e no painel.
+        $this->assertSame(1, WhatsappSendPolicy::remindersSentToday());
+        $this->assertSame(1, WhatsappMessage::reminders()->count());
+
+        // A cobrança do lembrete nunca vira alvo de outro lembrete.
+        Carbon::setTestNow(Carbon::parse('2026-09-10 19:55:00', 'America/Araguaina'));
+        $this->runReminders();
+        $this->assertSame(2, WhatsappMessage::count());
+        $this->assertSame(2, Payment::count());
+    }
+
+    public function test_reminder_falls_back_to_portal_text_when_charge_cannot_be_created(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-10 19:30:00', 'America/Araguaina'));
+        $this->fakePagBank(works: false);
+        $payment = $this->unpaid(1);
+
+        $this->runReminders();
+
+        $message = WhatsappMessage::sole();
+        $this->assertSame(SendUnpaidPaymentReminders::buildReminderMessage($payment->user, $payment), $message->message);
+        $this->assertSame('sent', $message->status);
+        $this->assertSame(1, Payment::count(), 'A cobrança que falhou não pode sobrar como pendente.');
+        $this->assertNotNull($payment->fresh()->unpaid_reminder_sent_at);
+    }
+
+    public function test_no_fresh_charge_for_multi_day_plans_or_when_whatsapp_send_fails(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-10 19:30:00', 'America/Araguaina'));
+        $this->fakePagBank();
+
+        $interval = $this->unpaid(1);
+        $interval->update(['payment_data' => ['plan_type' => 'interval']]);
+        $this->runReminders();
+        $this->assertSame(1, Payment::count());
+        $this->assertSame(1, WhatsappMessage::count());
+
+        // WhatsApp fora do ar: o aviso falha, o código não sai e a cobrança nova some.
+        // (fábrica nova: um segundo Http::fake não substituiria o do setUp)
+        Http::swap(new \Illuminate\Http\Client\Factory());
+        Http::preventStrayRequests();
+        Http::fake(['*/send' => Http::response(['error' => 'offline'], 500)]);
+        $second = $this->unpaid(2);
+        $this->runReminders();
+        $this->assertSame(2, Payment::count());
+        $this->assertSame('failed', WhatsappMessage::where('payment_id', $second->id)->sole()->status);
     }
 
     public function test_reminders_still_require_opt_in(): void

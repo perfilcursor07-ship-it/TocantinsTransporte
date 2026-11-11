@@ -72,14 +72,15 @@ class IntervalPlanService
 
     public static function settings(): array
     {
-        $legacyPrice12h = (float) SystemSetting::getValue('plan_interval_price_12h', '6.99');
+        $legacyPrice12h = SystemSetting::getValue('plan_interval_price_12h', null);
+        $default24h = $legacyPrice12h !== null ? (string) round((float) $legacyPrice12h * 2, 2) : '15.98';
 
         return [
             'enabled' => (bool) SystemSetting::getValue('plan_interval_enabled', '0'),
             'max_days' => max(1, (int) SystemSetting::getValue('plan_interval_max_days', '30')),
             // Compatibilidade: enquanto o novo valor não for salvo no painel,
             // duas bases antigas de 12h formam a diária única de 24h.
-            'price_24h' => (float) SystemSetting::getValue('plan_interval_price_24h', (string) ($legacyPrice12h * 2)),
+            'price_24h' => (float) SystemSetting::getValue('plan_interval_price_24h', $default24h),
             'today' => now()->toDateString(),
             'tomorrow' => now()->addDay()->toDateString(),
         ];

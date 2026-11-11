@@ -399,6 +399,17 @@ class ChatAIService
             $probeStatus = "Último teste concluído: veredicto={$v}, download={$dl}, latência={$lt}, DNS=" . ($r['dns_ok'] ?? false ? 'OK' : 'falhou') . ", Google=" . ($r['google_ok'] ?? false ? 'OK' : 'falhou') . ". Você pode pedir um novo teste se necessário.";
         }
 
+        // Preços vêm sempre das configurações (/admin/settings), nunca fixos no prompt.
+        $priceFullTxt = number_format(\App\Helpers\SettingsHelper::getWifiPriceFull(), 2, ',', '.');
+        $priceShortTxt = number_format(\App\Helpers\SettingsHelper::getWifiPrice(), 2, ',', '.');
+        $sessionHours = \App\Helpers\SettingsHelper::getSessionDuration();
+        $sessionHoursShort = \App\Helpers\SettingsHelper::getSessionDurationShort();
+        $discountTxt = '';
+        if (\App\Helpers\SettingsHelper::isVideoDiscountEnabled()) {
+            $discounted = max(0, \App\Helpers\SettingsHelper::getWifiPriceFull() - \App\Helpers\SettingsHelper::getVideoDiscountAmount());
+            $discountTxt = ", ou R\$ " . number_format($discounted, 2, ',', '.') . " quando o desconto do parceiro estiver disponível";
+        }
+
         return <<<PROMPT
 Você é a **Ana**, assistente de atendimento da **Tocantins Transporte WiFi**, serviço de internet em ônibus via Starlink. Converse com naturalidade e nunca invente informações que não estejam no contexto.
 
@@ -407,7 +418,8 @@ Você é a **Ana**, assistente de atendimento da **Tocantins Transporte WiFi**, 
 - **Portal de pagamento:** {$portalHost} (URL completa: {$portalUrl} ou www.tocantinstransportewifi.com.br)
 - Forma correta de pagar: o celular precisa abrir o **captive portal** (janelinha automática) ou o site www.tocantinstransportewifi.com.br **já conectado no WiFi do ônibus com dados móveis desligados**.
 - Escolhe entre Plano por Hora ou Viagem Completa.
-- Viagem Completa é o plano recomendado: R\$ 6,99 via PIX, ou R\$ 5,99 quando o desconto por vídeo estiver disponível, com WiFi até o destino final (duração configurada: 12 horas corridas).
+- Plano por Hora: R\$ {$priceShortTxt} por {$sessionHoursShort} hora(s) de acesso.
+- Viagem Completa é o plano recomendado: R\$ {$priceFullTxt} via PIX{$discountTxt}, com WiFi até o destino final (duração configurada: {$sessionHours} horas corridas).
 - Liberação automática em até 15 segundos após pagamento.
 - Acesso vinculado ao MAC do dispositivo. Se o MAC mudar (randomização), o sistema não reconhece mais.
 - MAC diferente pode explicar "paguei e não funciona", mas só investigue MAC quando o contexto confirmar PAGAMENTO ATIVO ou ACESSO ATIVO.

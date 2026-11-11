@@ -69,6 +69,20 @@ class WhatsappMessage extends Model
     }
 
     /**
+     * Lembretes de PIX não pago (automáticos e manuais).
+     *
+     * A tabela não tem coluna de tipo, então reconhece pelo texto: todo
+     * lembrete é ligado a um pagamento e traz PARAR; a confirmação de
+     * pagamento também traz PARAR, mas sempre com "Pagamento confirmado".
+     */
+    public function scopeReminders($query)
+    {
+        return $query->whereNotNull('payment_id')
+            ->where('message', 'like', '%PARAR%')
+            ->where('message', 'not like', '%Pagamento confirmado%');
+    }
+
+    /**
      * Marcar como enviada
      */
     public function markAsSent($messageId = null)

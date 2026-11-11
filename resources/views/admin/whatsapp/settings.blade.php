@@ -48,6 +48,21 @@
                         </label>
                     </div>
 
+                    <!-- Código PIX no lembrete -->
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                        <div class="pr-4">
+                            <p class="font-medium text-gray-800">Enviar código PIX novo no lembrete</p>
+                            <p class="text-sm text-gray-500">
+                                O passageiro recebe o aviso e, em seguida, um código copia-e-cola de uma cobrança nova, para pagar direto no banco.
+                                Desligado, o lembrete só manda o link do portal. São duas mensagens por passageiro: se os pedidos de PARAR subirem, desligue.
+                            </p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                            <input type="checkbox" name="reminder_pix_code_enabled" value="1" class="sr-only peer" {{ $settings['reminder_pix_code_enabled'] ? 'checked' : '' }}>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                        </label>
+                    </div>
+
                     <!-- Tempo de Pendência -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">
@@ -123,8 +138,12 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">
                             Mensagem Padrão
                         </label>
+                        <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
+                            Os lembretes de PIX (automáticos e os botões "Enviar" da tela do WhatsApp) <strong>não usam este modelo</strong>:
+                            eles alternam entre 4 textos fixos, com o valor do PIX, o código para pagar (ou o link do portal) e a opção PARAR.
+                        </p>
                         <p class="text-xs text-gray-500 mb-2">
-                            Use as variáveis: <code class="bg-gray-100 px-1 rounded">{nome}</code>, <code class="bg-gray-100 px-1 rounded">{valor}</code>, <code class="bg-gray-100 px-1 rounded">{telefone}</code>
+                            Use as variáveis:<code class="bg-gray-100 px-1 rounded">{nome}</code>, <code class="bg-gray-100 px-1 rounded">{valor}</code>, <code class="bg-gray-100 px-1 rounded">{telefone}</code>
                         </p>
                         <textarea name="message_template" rows="8" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-tocantins-green focus:border-transparent font-mono text-sm" required>{{ $settings['message_template'] }}</textarea>
                         @error('message_template')

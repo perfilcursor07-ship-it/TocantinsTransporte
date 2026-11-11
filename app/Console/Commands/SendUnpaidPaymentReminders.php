@@ -7,7 +7,7 @@ use App\Models\User;
 use App\Models\WhatsappMessage;
 use App\Models\WhatsappOptOut;
 use App\Models\WhatsappSetting;
-use App\Services\WhatsappClient;
+use App\Services\UnpaidReminderSender;
 use App\Services\WhatsappSendPolicy;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -40,11 +40,13 @@ class SendUnpaidPaymentReminders extends Command
         $enabled = \App\Models\SystemSetting::getValue('unpaid_reminder_enabled', '0');
         if (!$enabled) {
             $this->info('Lembretes de pagamento pendente desabilitados nas configurações.');
+            $this->heartbeat('desativado nas configurações do sistema');
             return 0;
         }
 
         if (!WhatsappSetting::isConnected() || !WhatsappSetting::isAutoSendEnabled()) {
             $this->warn('Envio automático do WhatsApp está desabilitado ou desconectado. Pulando.');
+            $this->heartbeat(WhatsappSetting::isConnected() ? 'envio automático desligado' : 'WhatsApp desconectado');
             return 0;
         }
 
@@ -53,12 +55,14 @@ class SendUnpaidPaymentReminders extends Command
         // liberar, o lembrete sai normalmente.
         if (WhatsappSendPolicy::isQuietTime()) {
             $this->info('Horário de silêncio (' . WhatsappSendPolicy::quietLabel() . '). Nenhum lembrete enviado.');
+            $this->heartbeat('horário de silêncio (' . WhatsappSendPolicy::quietLabel() . ')');
             return 0;
         }
 
         // 🛡️ Teto diário de lembretes (automático + manual somados).
         if (WhatsappSendPolicy::remainingToday() === 0) {
             $this->info('Limite diário de lembretes atingido (' . WhatsappSendPolicy::dailyCap() . ').');
+            $this->heartbeat('limite diário atingido (' . WhatsappSendPolicy::dailyCap() . ')');
             return 0;
         }
 
@@ -83,6 +87,7 @@ class SendUnpaidPaymentReminders extends Command
 
         if ($payments->isEmpty()) {
             $this->info('Nenhum pagamento pendente para enviar lembrete.');
+            $this->heartbeat('nenhum PIX pendente na janela');
             return 0;
         }
 
@@ -137,8 +142,7 @@ class SendUnpaidPaymentReminders extends Command
             }
 
             // Não enviar mais de uma vez por dia para o mesmo telefone
-            $cleanPhone = preg_replace('/[^\d]/', '', $user->phone);
-            $cacheKey = 'unpaid_reminder_phone_' . $cleanPhone;
+            $cacheKey = self::phoneLockKey($user->phone);
             if (Cache::has($cacheKey)) {
                 $this->markReminderSent($payment, 'telefone já recebeu lembrete hoje');
                 $skipped++;
@@ -178,6 +182,7 @@ class SendUnpaidPaymentReminders extends Command
         }
 
         $this->info("Lembretes: {$sent} enviados, {$skipped} pulados, {$failed} falharam.");
+        $this->heartbeat("{$sent} enviados, {$skipped} pulados, {$failed} falharam");
 
         Log::info('💰 Lembretes de pagamento pendente processados', [
             'total' => $payments->count(),
@@ -189,37 +194,23 @@ class SendUnpaidPaymentReminders extends Command
         return 0;
     }
 
-    /** Envia uma única atualização útil de pagamento pendente. */
+    /**
+     * Envia o lembrete: aviso + código PIX novo ou, se a cobrança nova não
+     * puder ser gerada, só o aviso com o link do portal.
+     */
     protected function sendReminderMessage(User $user, Payment $payment): bool
     {
         try {
-            $phone = WhatsappMessage::formatPhone($user->phone);
-            $name = $user->name ? trim(explode(' ', $user->name)[0]) : null;
-            $amount = number_format((float) $payment->amount, 2, ',', '.');
-            $greeting = $name ? "Oi {$name}!" : 'Oi!';
+            $result = app(UnpaidReminderSender::class)->send($user, $payment, 15);
 
-            $portalUrl = rtrim(config('app.url'), '/') . '/';
-            $message = self::reminderText($payment, $greeting, $amount, $portalUrl);
-
-            $whatsappMessage = WhatsappMessage::create([
-                'user_id' => $user->id,
-                'payment_id' => $payment->id,
-                'phone' => $phone,
-                'message' => $message,
-                'status' => 'pending',
-            ]);
-
-            $response = WhatsappClient::send($phone, $message, [], 15);
-
-            if (!$response->successful()) {
-                $whatsappMessage->markAsFailed($response->body());
+            if (! $result['ok']) {
                 return false;
             }
-            $whatsappMessage->markAsSent($response->json('messageId'));
+
             Log::info('📱 Lembrete de pagamento pendente autorizado enviado', [
                 'payment_id' => $payment->id,
                 'user_id' => $user->id,
-                'phone' => $phone,
+                'com_codigo_pix' => $result['with_code'],
             ]);
 
             return true;
@@ -229,6 +220,41 @@ class SendUnpaidPaymentReminders extends Command
                 'error' => $e->getMessage(),
             ]);
             return false;
+        }
+    }
+
+    /**
+     * Monta o lembrete de um pagamento. Usado pelo envio automático e pelos
+     * botões de /admin/whatsapp, para o passageiro receber sempre o mesmo
+     * texto (com valor certo, link do portal e PARAR).
+     */
+    public static function buildReminderMessage(User $user, Payment $payment): string
+    {
+        $name = $user->name ? trim(explode(' ', $user->name)[0]) : null;
+        $amount = number_format((float) $payment->amount, 2, ',', '.');
+        $greeting = $name ? "Oi {$name}!" : 'Oi!';
+        $portalUrl = rtrim(config('app.url'), '/') . '/';
+
+        return self::reminderText($payment, $greeting, $amount, $portalUrl);
+    }
+
+    /** Chave da trava "um lembrete por telefone a cada 24h". */
+    public static function phoneLockKey(?string $phone): string
+    {
+        return 'unpaid_reminder_phone_' . preg_replace('/[^\d]/', '', (string) $phone);
+    }
+
+    /**
+     * Registra quando o comando rodou e o que aconteceu, para o painel
+     * /admin/whatsapp avisar se o agendador parar. Nunca interrompe o envio.
+     */
+    protected function heartbeat(string $result): void
+    {
+        try {
+            WhatsappSetting::set('reminder_last_run_at', now()->toDateTimeString());
+            WhatsappSetting::set('reminder_last_run_result', $result);
+        } catch (\Throwable $e) {
+            // Painel é só informação: falha aqui não pode afetar os lembretes.
         }
     }
 

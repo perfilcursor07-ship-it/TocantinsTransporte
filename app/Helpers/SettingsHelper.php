@@ -13,7 +13,7 @@ class SettingsHelper
     public static function getWifiPrice(): float
     {
         return (float) Cache::remember('wifi_price', 3600, function () {
-            return SystemSetting::getValue('wifi_price', config('wifi.pricing.default_price', 5.99));
+            return SystemSetting::getValue('wifi_price', config('wifi.pricing.default_price', 6.99));
         });
     }
 
@@ -23,7 +23,7 @@ class SettingsHelper
     public static function getWifiPriceFull(): float
     {
         return (float) Cache::remember('wifi_price_full', 3600, function () {
-            return SystemSetting::getValue('wifi_price_full', 6.99);
+            return SystemSetting::getValue('wifi_price_full', 7.99);
         });
     }
 
@@ -157,7 +157,7 @@ class SettingsHelper
     public static function isVideoDiscountEnabled(): bool
     {
         return (bool) Cache::remember('video_discount_enabled', 3600, function () {
-            return SystemSetting::getValue('video_discount_enabled', '1');
+            return SystemSetting::getValue('video_discount_enabled', '0');
         });
     }
 
