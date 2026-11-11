@@ -25,18 +25,22 @@ class DriverPixController extends Controller
 
         $tab = $request->get('tab', 'drivers');
 
-        $monthStart = DriverPixProfileMonth::normalizeMonth(
-            DriverPixProfileMonth::isValidMonthInput($request->get('month')) ? $request->get('month') : null
-        );
+        // A tela inteira fala em "ganhos de <mês>" (o mês trabalhado). O banco
+        // guarda a competência, que é o mês seguinte: a conversão é feita aqui,
+        // uma vez, e $month/$monthStart seguem sendo a competência interna.
+        $monthStart = $this->competenciaDoRequest($request);
         $month = $monthStart->format('Y-m');
         $monthLabel = DriverPixProfileMonth::labelFor($monthStart);
         $monthOptions = $this->monthOptions($monthStart);
 
-        // A competência paga o mês trabalhado ANTERIOR: a receita e o prêmio da
-        // tela de Outubro vêm de Setembro. Rotular evita ler um pelo outro.
-        $ganhosMes = \App\Services\DriverPrizeService::mesDaReceita($month);
-        $ganhosLabel = DriverPixProfileMonth::labelFor(
-            DriverPixProfileMonth::normalizeMonth($ganhosMes)
+        $ganhosMes = DriverPrizeService::mesDaReceita($month);
+        $ganhosLabel = DriverPrizeService::rotuloGanhos($month);
+        $ganhosPeriodo = DriverPrizeService::periodoGanhos($month);
+
+        // Ciclo normal de hoje: ganhos do mês passado. É o padrão do "Gerar link".
+        $ganhosPadrao = DriverPrizeService::ganhosPadrao();
+        $ganhosPadraoLabel = DriverPrizeService::rotuloGanhosCompleto(
+            DriverPrizeService::competenciaDosGanhos($ganhosPadrao)
         );
 
         $links = DriverPixRegistrationLink::with('creator')
@@ -64,7 +68,7 @@ class DriverPixController extends Controller
         return view('admin.driver-pix.index', array_merge($board, compact(
             'tab', 'links', 'payments', 'stats', 'statusFilter', 'profiles',
             'month', 'monthStart', 'monthLabel', 'monthOptions', 'carros',
-            'ganhosMes', 'ganhosLabel'
+            'ganhosMes', 'ganhosLabel', 'ganhosPeriodo', 'ganhosPadrao', 'ganhosPadraoLabel'
         )));
     }
 
@@ -267,7 +271,30 @@ class DriverPixController extends Controller
         ];
     }
 
-    /** @return array<string, string> */
+    /**
+     * Competência escolhida na tela. O filtro vem como ?ganhos=AAAA-MM (mês
+     * trabalhado); ?month=AAAA-MM (competência) segue aceito para links antigos.
+     * Sem nada, vale o ciclo normal: ganhos do mês passado, pagos neste mês.
+     */
+    private function competenciaDoRequest(Request $request): Carbon
+    {
+        if (DriverPixProfileMonth::isValidMonthInput($request->get('ganhos'))) {
+            return DriverPixProfileMonth::normalizeMonth(
+                DriverPrizeService::competenciaDosGanhos(trim($request->get('ganhos')))
+            );
+        }
+
+        return DriverPixProfileMonth::normalizeMonth(
+            DriverPixProfileMonth::isValidMonthInput($request->get('month')) ? $request->get('month') : null
+        );
+    }
+
+    /**
+     * Opções do seletor, pelo mês de GANHOS:
+     * ['2026-10' => 'Ganhos de Outubro/2026 (01/10 a 31/10)', ...].
+     *
+     * @return array<string, string>
+     */
     private function monthOptions(Carbon $selected): array
     {
         $options = DriverPixProfileMonth::monthOptions(11);
@@ -284,16 +311,24 @@ class DriverPixController extends Controller
 
         $options[$selected->format('Y-m')] = DriverPixProfileMonth::labelFor($selected);
 
-        krsort($options);
+        // Até aqui as chaves são competências; a tela só mostra o mês trabalhado.
+        $porGanhos = [];
+        foreach (array_keys($options) as $competencia) {
+            $porGanhos[DriverPrizeService::mesDaReceita($competencia)] =
+                'Ganhos de ' . DriverPrizeService::rotuloGanhosCompleto($competencia);
+        }
 
-        return $options;
+        krsort($porGanhos);
+
+        return $porGanhos;
     }
 
     private function backToBoard(Request $request, string $tab = 'drivers')
     {
         return redirect()->route('admin.driver-pix.index', array_filter([
             'tab' => $tab,
-            'month' => $request->get('month'),
+            'ganhos' => $request->get('ganhos'),
+            'month' => $request->get('ganhos') ? null : $request->get('month'),
             'bus' => $request->get('bus'),
             'status' => $request->get('status'),
             'q' => $request->get('q'),
@@ -339,15 +374,18 @@ class DriverPixController extends Controller
         $validated = $request->validate([
             'label' => 'nullable|string|max:80',
             'expires_at' => 'nullable|date|after:now',
-            'reference_month' => 'nullable|date_format:Y-m',
+            'ganhos_mes' => ['nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
         ], [
-            'reference_month.date_format' => 'Informe a competência no formato AAAA-MM.',
+            'ganhos_mes.regex' => 'Informe o mês dos ganhos no formato AAAA-MM.',
         ]);
 
-        // Mês que este link vai coletar. Sem escolha, vale o mês corrente.
-        $competencia = ! empty($validated['reference_month'])
-            ? DriverPixProfileMonth::normalizeMonth($validated['reference_month'])
-            : null;
+        // O admin escolhe (ou nem escolhe) o mês TRABALHADO. Sem escolha vale o
+        // ciclo normal: ganhos do mês passado. A competência gravada é sempre o
+        // mês seguinte ao dos ganhos, e fica fixa no link — assim ele não muda
+        // de mês sozinho se for aberto depois da virada.
+        $competencia = DriverPixProfileMonth::normalizeMonth(
+            DriverPrizeService::competenciaDosGanhos($validated['ganhos_mes'] ?? null)
+        );
 
         $link = DriverPixRegistrationLink::create([
             'token' => DriverPixRegistrationLink::generateToken(),
@@ -358,9 +396,7 @@ class DriverPixController extends Controller
             'created_by' => auth()->id(),
         ]);
 
-        $aviso = $competencia
-            ? 'Link gerado para ' . DriverPixProfileMonth::labelFor($competencia) . '.'
-            : 'Link gerado para o mês corrente.';
+        $aviso = 'Link gerado para os ganhos de ' . DriverPrizeService::rotuloGanhosCompleto($competencia) . '.';
 
         return back()->with('success', $aviso)->with('new_link_url', $link->publicUrl());
     }
@@ -504,7 +540,7 @@ class DriverPixController extends Controller
     public function storeMonth(Request $request, DriverPixProfile $profile)
     {
         if (! $profile->isApproved()) {
-            return back()->with('error', 'Aprove o cadastro do motorista antes de confirmar a competência.');
+            return back()->with('error', 'Aprove o cadastro do motorista antes de confirmar o mês.');
         }
 
         $validated = $request->validate([
@@ -554,14 +590,14 @@ class DriverPixController extends Controller
 
         return $this->backToBoard($request)->with(
             'success',
-            "{$profile->full_name} confirmado em " . DriverPixProfileMonth::labelFor($monthStart) . " (ônibus {$busNumber})."
+            "{$profile->full_name} confirmado nos ganhos de " . DriverPrizeService::rotuloGanhos($monthStart) . " (ônibus {$busNumber})."
         );
     }
 
     public function approveMonth(Request $request, DriverPixProfileMonth $monthEntry)
     {
         if ($monthEntry->status === 'approved') {
-            return back()->with('error', 'Esta competência já está aprovada.');
+            return back()->with('error', 'Esta confirmação já está aprovada.');
         }
 
         DB::transaction(function () use ($monthEntry) {
@@ -606,7 +642,8 @@ class DriverPixController extends Controller
 
         return $this->backToBoard($request)->with(
             'success',
-            "Competência {$monthEntry->monthLabel()} de {$monthEntry->profile?->full_name} aprovada."
+            'Confirmação dos ganhos de ' . DriverPrizeService::rotuloGanhos($monthEntry->reference_month)
+                . " de {$monthEntry->profile?->full_name} aprovada."
         );
     }
 
@@ -623,16 +660,16 @@ class DriverPixController extends Controller
             'approved_at' => now(),
         ]);
 
-        return $this->backToBoard($request)->with('success', 'Competência rejeitada. Peça um novo envio ao motorista.');
+        return $this->backToBoard($request)->with('success', 'Confirmação rejeitada. Peça um novo envio ao motorista.');
     }
 
     public function destroyMonth(Request $request, DriverPixProfileMonth $monthEntry)
     {
-        $label = $monthEntry->monthLabel();
+        $label = DriverPrizeService::rotuloGanhos($monthEntry->reference_month);
         $name = $monthEntry->profile?->full_name ?? 'motorista';
         $monthEntry->delete();
 
-        return $this->backToBoard($request)->with('success', "Competência {$label} de {$name} removida.");
+        return $this->backToBoard($request)->with('success', "Confirmação dos ganhos de {$label} de {$name} removida.");
     }
 
     /* ------------------------------------------------------------------ */
@@ -673,7 +710,7 @@ class DriverPixController extends Controller
         $busNumber = $entry?->bus_number
             ?: ($validated['bus_number'] ? mb_strtoupper(trim($validated['bus_number']), 'UTF-8') : $profile->bus_number);
 
-        $monthLabel = DriverPixProfileMonth::labelFor($monthStart);
+        $monthLabel = 'ganhos de ' . DriverPrizeService::rotuloGanhos($monthStart);
         $carSituation = DriverPrizeService::situacaoDoCarro($busNumber, $monthStart->format('Y-m'));
 
         if (! $carSituation || (float) $carSituation['premio'] <= 0) {
@@ -681,7 +718,7 @@ class DriverPixController extends Controller
 
             return $this->backToBoard($request)
                 ->with('error', 'Não é possível registrar o pagamento: o carro ainda não atingiu a meta mínima de R$ '
-                    . number_format($minimum, 2, ',', '.') . ' em vendas neste mês.');
+                    . number_format($minimum, 2, ',', '.') . ' em vendas nos ' . $monthLabel . '.');
         }
 
         $payment = DB::transaction(function () use ($profile, $entry, $monthStart, $busNumber, $validated, $monthLabel) {
@@ -698,7 +735,7 @@ class DriverPixController extends Controller
                 'reference_month' => $monthStart,
                 'bus_number' => $busNumber,
                 'amount' => $validated['amount'],
-                'description' => $validated['description'] ?? "Pagamento {$monthLabel} — ônibus {$busNumber}",
+                'description' => $validated['description'] ?? "Prêmio — {$monthLabel} — ônibus {$busNumber}",
                 'notes' => $validated['notes'] ?? null,
                 'status' => 'pending',
             ]);
@@ -706,8 +743,8 @@ class DriverPixController extends Controller
 
         if (! $payment->wasRecentlyCreated) {
             $message = $payment->status === 'pending'
-                ? 'Já existe pagamento para este usuário neste mês. Caso ainda não tenha recebido, aguarde o pagamento.'
-                : 'O pagamento deste mês já foi realizado para este usuário.';
+                ? "Já existe pagamento registrado para este motorista nos {$monthLabel}."
+                : "O pagamento dos {$monthLabel} já foi realizado para este motorista.";
 
             return $this->backToBoard($request)->with('error', $message);
         }

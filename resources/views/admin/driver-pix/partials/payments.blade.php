@@ -3,17 +3,17 @@
 <div class="bg-white rounded-2xl border border-border shadow-card overflow-hidden">
   <div class="p-5 border-b border-border bg-surface/50 flex flex-wrap gap-3 justify-between items-end">
     <div>
-      <h3 class="text-base font-bold text-ink">Pagamentos {{ $showingAll ? '— todos os meses' : '— ' . $monthLabel }}</h3>
+      <h3 class="text-base font-bold text-ink">Pagamentos {{ $showingAll ? '— todos os meses' : '— ganhos de ' . $ganhosLabel }}</h3>
       <p class="text-xs text-muted mt-0.5">Envie o PIX e marque como pago quando concluir</p>
     </div>
 
     <form method="GET" class="flex flex-wrap gap-2 items-end">
       <input type="hidden" name="tab" value="payments">
       <div class="min-w-[180px]">
-        <label class="block text-[10px] font-bold uppercase text-muted tracking-wider mb-1">Competência</label>
-        <select name="month" class="w-full px-3 py-2 border border-border rounded-xl text-sm bg-white">
+        <label class="block text-[10px] font-bold uppercase text-muted tracking-wider mb-1">Mês dos ganhos</label>
+        <select name="ganhos" class="w-full px-3 py-2 border border-border rounded-xl text-sm bg-white">
           @foreach($monthOptions as $value => $label)
-          <option value="{{ $value }}" @selected($month === $value)>{{ $label }}</option>
+          <option value="{{ $value }}" @selected($ganhosMes === $value)>{{ $label }}</option>
           @endforeach
         </select>
       </div>
@@ -37,7 +37,7 @@
             Ônibus {{ $payment->bus_number ?: ($payment->profile?->bus_number ?? '—') }}
           </span>
           @if($payment->reference_month)
-          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-pale text-blue">{{ $payment->monthLabel() }}</span>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-pale text-blue">Ganhos de {{ $payment->ganhosLabel() }}</span>
           @endif
           @php
             $pbadge = match($payment->status) {
@@ -103,11 +103,11 @@
     @endforeach
   </div>
   <div class="p-4 border-t border-border">
-    {{ $payments->appends(array_filter(['tab' => 'payments', 'month' => $month, 'payments_month' => request('payments_month')]))->links() }}
+    {{ $payments->appends(array_filter(['tab' => 'payments', 'ganhos' => $ganhosMes, 'payments_month' => request('payments_month')]))->links() }}
   </div>
   @else
   <div class="p-12 text-center text-sm text-muted">
-    Nenhum pagamento {{ $showingAll ? 'registrado ainda' : 'em ' . $monthLabel }}.
+    Nenhum pagamento {{ $showingAll ? 'registrado ainda' : 'dos ganhos de ' . $ganhosLabel }}.
   </div>
   @endif
 </div>

@@ -35,23 +35,23 @@
     {{-- Indicadores: as mesmas três perguntas que a aba Motoristas responde --}}
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div class="bg-white rounded-2xl border-2 border-green/30 p-4 shadow-card">
-            <p class="text-[10px] font-bold uppercase text-green-dark tracking-wider">A pagar · {{ $monthLabel }}</p>
-            <p class="text-[10px] text-muted">ganhos de {{ $ganhosLabel }}</p>
+            <p class="text-[10px] font-bold uppercase text-green-dark tracking-wider">A pagar · ganhos de {{ $ganhosLabel }}</p>
+            <p class="text-[10px] text-muted">período de {{ $ganhosPeriodo }}</p>
             <p class="text-2xl font-bold text-green-dark mt-1">R$ {{ number_format($monthTotals['a_pagar'] ?? 0, 2, ',', '.') }}</p>
             <p class="text-[10px] text-muted mt-0.5">{{ $monthTotals['a_pagar_qtd'] ?? 0 }} motorista(s) confirmado(s)</p>
         </div>
         <div class="bg-white rounded-2xl border border-border p-4 shadow-card">
-            <p class="text-[10px] font-bold uppercase text-muted tracking-wider">Já pago · {{ $monthLabel }}</p>
+            <p class="text-[10px] font-bold uppercase text-muted tracking-wider">Já pago · ganhos de {{ $ganhosLabel }}</p>
             <p class="text-2xl font-bold text-ink mt-1">R$ {{ number_format($stats['month_paid'], 2, ',', '.') }}</p>
             <p class="text-[10px] text-muted mt-0.5">R$ {{ number_format($stats['total_paid'], 2, ',', '.') }} acumulado</p>
         </div>
         <div class="bg-white rounded-2xl border border-border p-4 shadow-card">
-            <p class="text-[10px] font-bold uppercase text-muted tracking-wider">Pendências</p>
+            <p class="text-[10px] font-bold uppercase text-muted tracking-wider">Pendências · ganhos de {{ $ganhosLabel }}</p>
             <p class="text-2xl font-bold {{ ($monthTotals['pendencias'] ?? 0) > 0 ? 'text-amber-600' : 'text-ink' }} mt-1">{{ $monthTotals['pendencias'] ?? 0 }}</p>
             <p class="text-[10px] text-muted mt-0.5">{{ $stats['month_missing'] }} sem confirmar · {{ $stats['pending_profiles'] + $stats['month_updates'] }} p/ analisar</p>
         </div>
         <div class="bg-white rounded-2xl border border-border p-4 shadow-card">
-            <p class="text-[10px] font-bold uppercase text-muted tracking-wider">Confirmaram o mês</p>
+            <p class="text-[10px] font-bold uppercase text-muted tracking-wider">Confirmaram · ganhos de {{ $ganhosLabel }}</p>
             <p class="text-2xl font-bold text-ink mt-1">{{ $stats['month_confirmed'] }}<span class="text-base text-muted font-semibold">/{{ $stats['approved_profiles'] }}</span></p>
             <p class="text-[10px] text-muted mt-0.5">cadastros aprovados</p>
         </div>
@@ -60,7 +60,7 @@
     {{-- Tabs --}}
     <div class="flex gap-1 p-1 bg-surface rounded-2xl border border-border w-fit">
         @foreach(['drivers' => 'Motoristas', 'carros' => 'Carros e prêmios', 'links' => 'Links', 'payments' => 'Pagamentos'] as $key => $label)
-        <a href="{{ route('admin.driver-pix.index', ['tab' => $key, 'month' => $month]) }}"
+        <a href="{{ route('admin.driver-pix.index', ['tab' => $key, 'ganhos' => $ganhosMes]) }}"
            class="px-5 py-2.5 text-sm font-semibold rounded-xl transition-all {{ $tab === $key ? 'bg-white text-green shadow-card border border-border' : 'text-muted hover:text-ink' }}">
             {{ $label }}
             @if($key === 'drivers' && ($stats['pending_profiles'] + $stats['month_updates']) > 0)

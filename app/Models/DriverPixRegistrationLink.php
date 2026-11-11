@@ -18,7 +18,8 @@ class DriverPixRegistrationLink extends Model
     ];
 
     /**
-     * Mês que este link coleta. Sem mês definido, vale o mês corrente —
+     * Competência do link = mês em que o pagamento sai. Ela paga os ganhos do
+     * mês ANTERIOR (ver ganhosLabel). Sem mês definido, vale o mês corrente —
      * é o comportamento dos links antigos.
      */
     public function competencia(): \Illuminate\Support\Carbon
@@ -33,7 +34,22 @@ class DriverPixRegistrationLink extends Model
         return DriverPixProfileMonth::labelFor($this->competencia());
     }
 
-    /** O link aponta para um mês que já passou? */
+    /** "Outubro/2026": o mês TRABALHADO que este link paga. */
+    public function ganhosLabel(): string
+    {
+        return \App\Services\DriverPrizeService::rotuloGanhos($this->competencia());
+    }
+
+    /** "Outubro/2026 (01/10 a 31/10)". */
+    public function ganhosLabelCompleto(): string
+    {
+        return \App\Services\DriverPrizeService::rotuloGanhosCompleto($this->competencia());
+    }
+
+    /**
+     * O link é de um ciclo atrasado? O ciclo normal paga os ganhos do mês
+     * passado (competência = mês corrente); só é "atrasado" o que vem antes.
+     */
     public function ehMesPassado(): bool
     {
         return $this->competencia()->lt(now()->startOfMonth());

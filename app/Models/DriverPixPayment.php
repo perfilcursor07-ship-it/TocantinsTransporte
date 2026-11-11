@@ -48,6 +48,16 @@ class DriverPixPayment extends Model
         return DriverPixProfileMonth::labelFor($this->reference_month);
     }
 
+    /** "Outubro/2026": o mês trabalhado que este pagamento paga. */
+    public function ganhosLabel(): string
+    {
+        if (! $this->reference_month) {
+            return '—';
+        }
+
+        return \App\Services\DriverPrizeService::rotuloGanhos($this->reference_month);
+    }
+
     public function shortMonthLabel(): string
     {
         if (! $this->reference_month) {

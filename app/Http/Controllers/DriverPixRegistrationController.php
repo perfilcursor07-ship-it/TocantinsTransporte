@@ -29,13 +29,15 @@ class DriverPixRegistrationController extends Controller
             return view('driver-pix.invalid', ['reason' => 'Este link de cadastro expirou ou foi desativado. Peça um novo link ao administrador.']);
         }
 
-        // A competência vem do link: permite cobrar/confirmar um mês passado.
+        // A competência (mês do pagamento) vem do link, mas o motorista só vê
+        // o mês TRABALHADO: "ganhos de Outubro/2026 (01/10 a 31/10)".
         $competencia = $link->competencia();
 
         return view('driver-pix.register', [
             'link' => $link,
             'currentMonth' => $competencia->format('Y-m'),
-            'currentMonthLabel' => DriverPixProfileMonth::labelFor($competencia),
+            'ganhosLabel' => DriverPrizeService::rotuloGanhos($competencia),
+            'ganhosPeriodo' => DriverPrizeService::periodoGanhos($competencia),
             'ehMesPassado' => $link->ehMesPassado(),
         ]);
     }
@@ -136,7 +138,7 @@ class DriverPixRegistrationController extends Controller
             'bus_number' => 'required|string|max:20',
         ], [
             'phone.required' => 'Informe seu telefone com DDD.',
-            'bus_number.required' => 'Informe o número do ônibus (carro) deste mês.',
+            'bus_number.required' => 'Informe o número do ônibus (carro) em que você trabalhou.',
         ]);
         $cpfDigits = preg_replace('/\D/', '', $validated['cpf']);
         $phoneDigits = preg_replace('/\D/', '', $validated['phone']);
@@ -155,7 +157,7 @@ class DriverPixRegistrationController extends Controller
             throw ValidationException::withMessages([
                 'bus_number' => 'Este carro ainda não atingiu a meta mínima de R$ '
                     . number_format($metaMinima, 2, ',', '.')
-                    . ' em vendas no mês. Você poderá confirmar os dados quando a meta for alcançada.',
+                    . ' em vendas em ' . DriverPrizeService::rotuloGanhos($monthStart) . ', então não há prêmio a receber neste período.',
             ]);
         }
 
@@ -294,7 +296,7 @@ class DriverPixRegistrationController extends Controller
             ->route('driver-pix.success', $token)
             ->with('driver_pix_result', [
                 'is_update' => $isUpdate,
-                'month_label' => DriverPixProfileMonth::labelFor($monthStart),
+                'month_label' => DriverPrizeService::rotuloGanhosCompleto($monthStart),
                 'bus_number' => $busNumber,
                 'profile_status' => $profile->status,
                 'pix_changed' => $pixChanged,
@@ -357,9 +359,10 @@ class DriverPixRegistrationController extends Controller
             'proximo_premio_fmt' => $dados['proxima_faixa']
                 ? 'R$ ' . number_format($dados['proxima_faixa']['premio'], 2, ',', '.')
                 : null,
-            'mes' => \App\Models\DriverPixProfileMonth::labelFor(
-                \App\Services\DriverPrizeService::mesValido($mes) . '-01'
-            ),
+            // A receita exibida é a do mês TRABALHADO (anterior à competência);
+            // o rótulo tem de dizer esse mês, não o da competência.
+            'mes' => 'ganhos de ' . DriverPrizeService::rotuloGanhos(DriverPrizeService::mesValido($mes)),
+            'periodo' => DriverPrizeService::periodoGanhos(DriverPrizeService::mesValido($mes)),
         ];
     }
 
@@ -431,12 +434,14 @@ class DriverPixRegistrationController extends Controller
             $payment = (clone $query)->where('status', 'pending')->latest('id')->first()
                 ?: (clone $query)->where('status', 'paid')->latest('id')->first();
 
+            $ganhos = DriverPrizeService::rotuloGanhos($monthStart);
+
             if ($payment) {
                 return [
                     'status' => $payment->status,
                     'message' => $payment->status === 'pending'
-                        ? 'Já existe um pagamento para este usuário neste mês. Caso ainda não tenha recebido, aguarde o pagamento.'
-                        : 'O pagamento deste mês já consta como realizado para este usuário. Se houver divergência, fale com a administração.',
+                        ? "Seu pagamento dos ganhos de {$ganhos} já está registrado e será feito em breve. Não precisa enviar de novo."
+                        : "O pagamento dos ganhos de {$ganhos} já consta como realizado para você. Se houver divergência, fale com a administração.",
                 ];
             }
         }
@@ -454,11 +459,13 @@ class DriverPixRegistrationController extends Controller
             return null;
         }
 
+        $ganhos = DriverPrizeService::rotuloGanhos($monthStart);
+
         return [
             'status' => $entry->status === 'pending' ? 'submitted' : 'approved',
             'message' => $entry->status === 'pending'
-                ? 'Seus dados deste mês já foram enviados e estão em análise. Não é necessário solicitar novamente.'
-                : 'Seus dados deste mês já foram confirmados. Caso ainda não tenha recebido, aguarde o pagamento.',
+                ? "Seus dados dos ganhos de {$ganhos} já foram enviados e estão em análise. Não precisa enviar de novo."
+                : "Seus dados dos ganhos de {$ganhos} já foram confirmados. Agora é só aguardar o pagamento.",
         ];
     }
 

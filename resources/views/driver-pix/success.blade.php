@@ -23,7 +23,7 @@
     @if($result)
     <div class="bg-white rounded-2xl border border-slate-100 shadow-lg shadow-slate-200/60 p-5 text-left mt-4 mb-5">
         <div class="flex justify-between gap-3 py-1.5 text-sm">
-            <span class="text-slate-500">Mês</span>
+            <span class="text-slate-500">Ganhos de</span>
             <span class="font-bold text-slate-800">{{ $result['month_label'] }}</span>
         </div>
         <div class="flex justify-between gap-3 py-1.5 text-sm border-t border-slate-100">
@@ -45,7 +45,7 @@
     @elseif($result['needs_review'])
     <p class="text-sm text-slate-600 mb-4">O administrador vai analisar e aprovar seu cadastro em breve.</p>
     @else
-    <p class="text-sm text-slate-600 mb-4">Seus dados deste mês estão confirmados. Nada mais é necessário.</p>
+    <p class="text-sm text-slate-600 mb-4">Seus dados estão confirmados. Nada mais é necessário.</p>
     @endif
     @else
     <p class="text-sm text-slate-600 mb-6">Seus dados foram recebidos. O administrador irá analisar e aprovar seu cadastro PIX em breve.</p>

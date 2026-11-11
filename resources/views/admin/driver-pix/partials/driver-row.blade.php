@@ -23,8 +23,8 @@
   $stateBadge = match($state) {
     'new' => ['bg-amber-100 text-amber-800', 'Novo cadastro'],
     'update' => ['bg-blue-pale text-blue', 'Alteração para aprovar'],
-    'ready' => ['bg-green-pale text-green-dark', 'Confirmado no mês'],
-    'missing' => ['bg-slate-100 text-slate-600', 'Não confirmou o mês'],
+    'ready' => ['bg-green-pale text-green-dark', 'Dados confirmados'],
+    'missing' => ['bg-slate-100 text-slate-600', 'Não confirmou os dados'],
     'rejected' => ['bg-red-pale text-red', 'Rejeitado'],
     default => ['bg-slate-100 text-slate-600', ucfirst($state)],
   };
@@ -51,7 +51,7 @@
           ✓ Pago {{ $paid->paid_at?->format('d/m/Y') }}
         </span>
         @elseif($state === 'ready')
-        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500">Sem pagamento no mês</span>
+        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500">Sem pagamento neste período</span>
         @endif
       </div>
 
@@ -142,7 +142,7 @@
                 data-name="{{ $profile->full_name }}"
                 data-phone="{{ $profile->formattedPhone() }}"
                 data-bus="{{ $bus }}"
-                data-month="{{ $monthLabel ?? '' }}"
+                data-month="{{ $ganhosLabel ?? '' }}"
                 data-pix="{{ $profile->pix_key }}"
                 data-payment-id="{{ $pending->id }}"
                 data-amount="{{ $pending->amount }}"
@@ -157,7 +157,7 @@
                 data-name="{{ $profile->full_name }}"
                 data-phone="{{ $profile->formattedPhone() }}"
                 data-bus="{{ $bus }}"
-                data-month="{{ $monthLabel ?? '' }}"
+                data-month="{{ $ganhosLabel ?? '' }}"
                 data-pix="{{ $profile->pix_key }}"
                 data-sugerido="{{ ($card['valor_sugerido'] ?? 0) > 0 ? number_format($card['valor_sugerido'], 2, '.', '') : '' }}">
           @if(($card['valor_sugerido'] ?? 0) > 0)
@@ -177,7 +177,7 @@
                  class="w-full px-3 py-1.5 border border-border rounded-lg text-xs text-center font-semibold uppercase"
                  aria-label="Ônibus do mês">
           <button type="submit" class="w-full px-3 py-2 bg-white border border-green/40 text-green rounded-xl text-xs font-bold hover:bg-green-pale">
-            Confirmar este mês
+            Confirmar por ele
           </button>
         </form>
       @endif

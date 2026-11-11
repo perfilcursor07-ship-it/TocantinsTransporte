@@ -80,6 +80,62 @@ class DriverPrizeService
         return self::primeiroDia($mes)->subMonthNoOverflow()->format('Y-m');
     }
 
+    /*
+     * ---------------------------------------------------------------------
+     * "Ganhos de <mês>" — o ÚNICO jeito de falar de mês nas telas.
+     *
+     * O banco continua guardando a competência (reference_month = mês em que o
+     * pagamento sai). Admin e motorista só enxergam o mês TRABALHADO, que é o
+     * mês anterior. Toda conversão entre os dois passa por aqui.
+     * ---------------------------------------------------------------------
+     */
+
+    /** Mês de ganhos do ciclo normal: sempre o mês passado. Em 10/11 => "2026-10". */
+    public static function ganhosPadrao(): string
+    {
+        return self::mesDaReceita(self::mesAtual());
+    }
+
+    /** Mês de ganhos ("2026-10") => competência que o banco guarda ("2026-11"). */
+    public static function competenciaDosGanhos(?string $ganhos): string
+    {
+        $ganhos = preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', (string) $ganhos) ? $ganhos : self::ganhosPadrao();
+
+        return self::primeiroDia($ganhos)->addMonthNoOverflow()->format('Y-m');
+    }
+
+    /** Competência (Y-m, data ou Carbon) => "Outubro/2026", o mês dos ganhos. */
+    public static function rotuloGanhos($competencia): string
+    {
+        $ganhos = self::inicioDosGanhos($competencia);
+
+        return DriverPixProfileMonth::MONTH_NAMES[$ganhos->month] . '/' . $ganhos->year;
+    }
+
+    /** Competência => "01/10 a 31/10", o período trabalhado. */
+    public static function periodoGanhos($competencia): string
+    {
+        $ganhos = self::inicioDosGanhos($competencia);
+
+        return $ganhos->format('d/m') . ' a ' . $ganhos->copy()->endOfMonth()->format('d/m');
+    }
+
+    /** Competência => "Outubro/2026 (01/10 a 31/10)". */
+    public static function rotuloGanhosCompleto($competencia): string
+    {
+        return self::rotuloGanhos($competencia) . ' (' . self::periodoGanhos($competencia) . ')';
+    }
+
+    /** Primeiro dia do mês de ganhos de uma competência. */
+    private static function inicioDosGanhos($competencia): Carbon
+    {
+        $inicio = $competencia instanceof \DateTimeInterface
+            ? Carbon::create((int) $competencia->format('Y'), (int) $competencia->format('n'), 1)
+            : DriverPixProfileMonth::normalizeMonth((string) $competencia);
+
+        return $inicio->startOfMonth()->subMonthNoOverflow();
+    }
+
     /** Rótulo pronto para a tela: "Outubro de 2026 · ganhos de Setembro". */
     public static function rotuloCompetencia(?string $mes): string
     {

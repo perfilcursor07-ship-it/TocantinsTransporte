@@ -6,27 +6,35 @@
             </div>
             <div class="flex-1">
                 <h2 class="text-base font-bold text-ink">Gerar link de cadastro</h2>
-                <p class="text-sm text-muted mt-1">Envie o link ao motorista para ele cadastrar nome, telefone, chave PIX e ônibus.</p>
+                <p class="text-sm text-muted mt-1">Envie o link ao motorista para ele confirmar nome, telefone, chave PIX e ônibus.</p>
+                <p class="text-sm text-ink mt-2 px-3 py-2 rounded-xl bg-green-pale border border-green/20">
+                    Este link é para o pagamento dos <strong>ganhos de {{ $ganhosPadraoLabel }}</strong>. O pagamento é sempre dos ganhos do mês anterior — não precisa escolher mês.
+                </p>
                 <form action="{{ route('admin.driver-pix.links.store') }}" method="POST" class="mt-4 flex flex-wrap gap-3 items-end">
                     @csrf
                     <div class="flex-1 min-w-[180px]">
                         <label class="block text-xs font-semibold text-muted mb-1">Identificação (opcional)</label>
-                        <input type="text" name="label" placeholder="Ex: Ônibus 5013 — março" class="w-full px-3 py-2.5 border border-border rounded-xl text-sm bg-surface focus:bg-white focus:border-green">
-                    </div>
-                    <div class="min-w-[200px]">
-                        <label class="block text-xs font-semibold text-muted mb-1">Competência (mês que o link coleta)</label>
-                        <select name="reference_month" class="w-full px-3 py-2.5 border border-border rounded-xl text-sm font-semibold bg-surface focus:bg-white focus:border-green">
-                            @foreach($monthOptions as $value => $label)
-                            <option value="{{ $value }}" @selected($month === $value)>{{ $label }}</option>
-                            @endforeach
-                        </select>
-                        <p class="text-[11px] text-muted mt-1">Para pagar mês atrasado, escolha o mês passado.</p>
+                        <input type="text" name="label" placeholder="Ex: Motoristas — ganhos de {{ \Illuminate\Support\Str::before($ganhosPadraoLabel, ' (') }}" class="w-full px-3 py-2.5 border border-border rounded-xl text-sm bg-surface focus:bg-white focus:border-green">
                     </div>
                     <div class="min-w-[200px]">
                         <label class="block text-xs font-semibold text-muted mb-1">Expira em (opcional)</label>
                         <input type="datetime-local" name="expires_at" class="w-full px-3 py-2.5 border border-border rounded-xl text-sm bg-surface focus:bg-white focus:border-green">
                     </div>
                     <button type="submit" class="px-6 py-2.5 bg-green text-white rounded-xl text-sm font-bold hover:bg-green-dark shadow-card">Gerar link</button>
+
+                    {{-- Avançado: só para pagar um mês atrasado. Fechado, o link sai no ciclo normal. --}}
+                    <details class="w-full text-xs text-muted" @if(old('ganhos_mes') && old('ganhos_mes') !== $ganhosPadrao) open @endif>
+                        <summary class="cursor-pointer font-semibold hover:text-ink w-fit">Pagar outro mês (atrasado)</summary>
+                        <div class="mt-2 max-w-sm">
+                            <label class="block text-xs font-semibold text-muted mb-1">Mês dos ganhos</label>
+                            <select name="ganhos_mes" class="w-full px-3 py-2.5 border border-border rounded-xl text-sm font-semibold bg-surface focus:bg-white focus:border-green">
+                                @foreach($monthOptions as $value => $label)
+                                <option value="{{ $value }}" @selected(old('ganhos_mes', $ganhosPadrao) === $value)>{{ $label }}{{ $value === $ganhosPadrao ? ' — ciclo normal' : '' }}</option>
+                                @endforeach
+                            </select>
+                            <p class="text-[11px] text-muted mt-1">Escolha sempre o mês em que o motorista TRABALHOU.</p>
+                        </div>
+                    </details>
                 </form>
             </div>
         </div>
@@ -45,7 +53,7 @@
                     <div class="flex items-center gap-2 mb-2">
                         <span class="font-semibold text-ink text-sm">{{ $link->label ?: 'Link sem nome' }}</span>
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ $link->ehMesPassado() ? 'bg-amber-100 text-amber-800' : 'bg-blue-pale text-blue' }}">
-                            {{ $link->competenciaLabel() }}@unless($link->reference_month) (mês corrente)@endunless
+                            Ganhos de {{ $link->ganhosLabelCompleto() }}{{ $link->ehMesPassado() ? ' · atrasado' : '' }}
                         </span>
                         @if($link->isUsable())
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-pale text-green">Ativo</span>

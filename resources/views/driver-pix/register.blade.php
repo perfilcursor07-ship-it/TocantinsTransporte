@@ -15,7 +15,8 @@
 <body class="bg-gradient-to-br from-emerald-50 via-white to-slate-100 min-h-screen flex flex-col">
 @php
     $hasOld = (bool) old('full_name');
-    $currentMonthLabel = $currentMonthLabel ?? \App\Models\DriverPixProfileMonth::labelFor(now());
+    $ganhosLabel = $ganhosLabel ?? \App\Services\DriverPrizeService::rotuloGanhos($currentMonth ?? now()->format('Y-m'));
+    $ganhosPeriodo = $ganhosPeriodo ?? \App\Services\DriverPrizeService::periodoGanhos($currentMonth ?? now()->format('Y-m'));
     $ehMesPassado = $ehMesPassado ?? false;
 @endphp
 <main class="flex-1 p-4 sm:p-6 lg:p-8 pb-20 animate-fade-up">
@@ -26,15 +27,15 @@
         </div>
         <h1 class="text-base font-bold text-slate-800">Cadastro PIX — Motorista</h1>
         <p class="text-[11px] text-slate-500 mt-0.5">
-            Confirme seus dados de <strong class="text-slate-700">{{ $currentMonthLabel }}</strong>
+            Pagamento referente aos ganhos de <strong class="text-slate-700">{{ $ganhosLabel }}</strong> ({{ $ganhosPeriodo }})
         </p>
     </div>
 
     @if($ehMesPassado)
     <div class="mb-5 p-4 rounded-2xl bg-amber-50 border border-amber-200">
-        <p class="text-sm font-bold text-amber-900">Este link é do mês de {{ $currentMonthLabel }}</p>
+        <p class="text-sm font-bold text-amber-900">Este link é de um pagamento atrasado: ganhos de {{ $ganhosLabel }}</p>
         <p class="text-xs text-amber-800 mt-1">
-            Você está confirmando os dados daquele mês, não do mês atual. Informe o carro em que você estava em {{ $currentMonthLabel }}.
+            Informe o carro em que você trabalhou de {{ $ganhosPeriodo }}.
         </p>
     </div>
     @endif
@@ -80,7 +81,7 @@
             <div class="px-3 pt-3 pb-1">
                 <div class="flex items-center justify-between gap-3 mb-2.5">
                     <p class="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Seus dados</p>
-                    <span class="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">{{ $currentMonthLabel }}</span>
+                    <span class="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">Ganhos de {{ $ganhosLabel }}</span>
                 </div>
                 {{-- Campos lado a lado. Nome e CPF ficam travados quando o
                      cadastro foi encontrado: o motorista só ajusta telefone e carro. --}}
@@ -104,7 +105,7 @@
                         <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Número do ônibus / carro <span class="text-red-500">*</span></label>
                         <input type="text" name="bus_number" id="busNumber" value="{{ old('bus_number') }}" required placeholder="Ex: 5013"
                                class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[13px] focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition uppercase font-semibold tracking-wide">
-                        <p class="text-[10px] text-slate-400 mt-0.5">Mude se trocou de carro.</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5">Carro em que você trabalhou de {{ $ganhosPeriodo }}.</p>
                     </div>
                 </div>
 
@@ -117,7 +118,7 @@
                     <p class="text-[10px] font-bold uppercase tracking-wider" id="busPrizeTitle"></p>
                     <div class="flex items-end justify-between gap-3 mt-1">
                         <div>
-                            <p class="text-[10px] text-slate-500">Este carro já fez</p>
+                            <p class="text-[10px] text-slate-500" id="busRevenueLabel">Este carro fez</p>
                             <p class="text-base font-bold text-slate-800 leading-tight" id="busRevenue"></p>
                         </div>
                         <div class="text-right">
@@ -174,8 +175,8 @@
             </div>
 
             <div class="px-3 pb-3 pt-2">
-                <button type="submit" id="submitBtn" disabled data-label="Confirmar dados de {{ $currentMonthLabel }}" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white py-3 rounded-xl font-bold text-sm transition-all shadow-md shadow-emerald-200/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none">
-                    Confirmar dados de {{ $currentMonthLabel }}
+                <button type="submit" id="submitBtn" disabled data-label="Confirmar meus dados" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white py-3 rounded-xl font-bold text-sm transition-all shadow-md shadow-emerald-200/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none">
+                    Confirmar meus dados
                 </button>
             </div>
         </form>
@@ -231,7 +232,7 @@
             return;
         }
 
-        text.textContent = payment.message || 'Já existe um pagamento para este mês e carro. Caso ainda não tenha recebido, aguarde o pagamento.';
+        text.textContent = payment.message || 'Já existe um pagamento registrado para este período. Caso ainda não tenha recebido, aguarde.';
         notice.className = 'mt-3 rounded-xl border px-3 py-2.5 text-sm leading-relaxed ' +
             (payment.status === 'paid'
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
@@ -274,6 +275,8 @@
         el('busPrizeTitle').className = 'text-[10px] font-bold uppercase tracking-widest ' +
             (premiado ? 'text-emerald-700' : 'text-slate-400');
 
+        const rotuloReceita = el('busRevenueLabel');
+        if (rotuloReceita) rotuloReceita.textContent = 'Este carro fez' + (carro.periodo ? ' de ' + carro.periodo : '');
         el('busRevenue').textContent = carro.receita_fmt;
         el('busPrize').textContent = carro.premio_fmt;
         el('busPrize').className = 'text-xl font-bold ' + (premiado ? 'text-emerald-700' : 'text-slate-400');
@@ -282,17 +285,16 @@
         if (premiado) {
             nota = 'Observação: o prêmio será dividido entre os motoristas do carro, conforme a quantidade cadastrada.';
         } else if (carro.falta_fmt) {
-            nota = 'Faltam <strong>' + carro.falta_fmt + '</strong> em vendas neste carro para alcançar o prêmio de ' +
+            nota = 'Faltaram <strong>' + carro.falta_fmt + '</strong> em vendas neste carro para alcançar o prêmio de ' +
                    carro.proximo_premio_fmt + '.';
         } else {
-            nota = 'Este carro ainda não atingiu nenhuma faixa de prêmio neste mês.';
+            nota = 'Este carro não atingiu nenhuma faixa de prêmio neste período.';
         }
 
         if (!premiado) {
-            nota += '<br><strong>A confirmação será liberada quando o carro alcançar a meta mínima de ' +
-                    carro.meta_minima_fmt + ' em vendas.</strong>';
+            nota += '<br><strong>Só há prêmio quando o carro alcança a meta mínima de ' +
+                    carro.meta_minima_fmt + ' em vendas no período.</strong>';
         }
-        nota += '<br><span class="text-slate-400">Valor parcial do mês — o fechamento é no fim do mês.</span>';
         el('busPrizeNote').innerHTML = nota;
         el('busPrizeNote').className = 'text-[11px] mt-2 leading-relaxed ' +
             (premiado ? 'text-emerald-900' : 'text-slate-500');
@@ -498,12 +500,11 @@
             }
             applyKeepState();
 
+            // A situação do pagamento aparece uma vez só, no aviso abaixo do carro.
             showFeedback(
-                data.pagamento
-                    ? data.pagamento.message
-                    : '<strong>' + (p.full_name || 'Motorista') + '</strong> · ' + p.status_label +
-                      '. Confira o carro e a chave PIX.',
-                data.pagamento ? 'warn' : 'success'
+                '<strong>' + (p.full_name || 'Motorista') + '</strong> · ' + p.status_label +
+                    (data.pagamento ? '.' : '. Confira o carro e a chave PIX.'),
+                'success'
             );
 
             focusFirstEmpty();

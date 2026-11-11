@@ -25,11 +25,11 @@
       <input type="hidden" name="tab" value="drivers">
 
       <div class="min-w-[180px]">
-        <label class="block text-[10px] font-bold uppercase text-muted tracking-wider mb-1">Competência</label>
-        <select name="month" onchange="this.form.submit()"
+        <label class="block text-[10px] font-bold uppercase text-muted tracking-wider mb-1">Mês dos ganhos</label>
+        <select name="ganhos" onchange="this.form.submit()"
                 class="w-full px-3 py-2.5 border border-border rounded-xl text-sm font-semibold bg-white focus:border-green">
           @foreach($monthOptions as $value => $label)
-          <option value="{{ $value }}" @selected($month === $value)>{{ $label }}</option>
+          <option value="{{ $value }}" @selected($ganhosMes === $value)>{{ $label }}</option>
           @endforeach
         </select>
       </div>
@@ -49,7 +49,7 @@
       <button type="submit" class="px-5 py-2.5 bg-green text-white rounded-xl text-sm font-bold hover:bg-green-dark">Filtrar</button>
 
       @if(request('q') || request('bus') || request('status'))
-      <a href="{{ route('admin.driver-pix.index', ['tab' => 'drivers', 'month' => $month]) }}"
+      <a href="{{ route('admin.driver-pix.index', ['tab' => 'drivers', 'ganhos' => $ganhosMes]) }}"
          class="px-4 py-2.5 text-sm font-semibold text-muted hover:text-ink">Limpar</a>
       @endif
     </form>
@@ -59,8 +59,8 @@
   <div class="bg-white rounded-2xl border-2 border-green/30 shadow-card overflow-hidden">
     <div class="px-5 py-4 bg-green-pale/50 border-b border-green/20 flex items-center justify-between gap-4 flex-wrap">
       <div>
-        <h3 class="text-base font-bold text-green-dark">1 · A pagar em {{ $monthLabel }}</h3>
-        <p class="text-xs text-muted mt-0.5">Prêmio sobre a receita de {{ $ganhosLabel }}. Motoristas que confirmaram o mês e o carro ganhou prêmio.</p>
+        <h3 class="text-base font-bold text-green-dark">1 · A pagar · ganhos de {{ $ganhosLabel }}</h3>
+        <p class="text-xs text-muted mt-0.5">Prêmio sobre a receita de {{ $ganhosPeriodo }}. Motoristas que confirmaram os dados e o carro ganhou prêmio.</p>
       </div>
       <div class="text-right">
         <p class="text-2xl font-bold text-green-dark">R$ {{ number_format($monthTotals['a_pagar'], 2, ',', '.') }}</p>
@@ -99,10 +99,10 @@
       @endforeach
     @else
       <div class="px-5 py-8 text-center">
-        <p class="text-sm text-muted">Nada a pagar em {{ $monthLabel }}.</p>
+        <p class="text-sm text-muted">Nada a pagar dos ganhos de {{ $ganhosLabel }} por enquanto.</p>
         @if($monthTotals['missing'] > 0)
         <p class="text-xs text-muted mt-1">
-          {{ $monthTotals['missing'] }} motorista(s) ainda não confirmaram o mês — veja em Pendências abaixo.
+          {{ $monthTotals['missing'] }} motorista(s) ainda não confirmaram os dados — veja em Pendências abaixo.
         </p>
         @endif
       </div>
@@ -114,7 +114,7 @@
         <strong>{{ $semPremio->count() }} motorista(s) confirmaram, mas o carro não bateu a faixa de prêmio</strong>
         — {{ $semPremio->pluck('bus')->unique()->sort()->join(', ') }}.
         Veja quanto falta na aba
-        <a href="{{ route('admin.driver-pix.index', ['tab' => 'carros', 'month' => $month]) }}" class="text-green underline font-semibold">Carros e prêmios</a>.
+        <a href="{{ route('admin.driver-pix.index', ['tab' => 'carros', 'ganhos' => $ganhosMes]) }}" class="text-green underline font-semibold">Carros e prêmios</a>.
       </p>
     </div>
     @endif
@@ -124,7 +124,7 @@
   <details class="bg-white rounded-2xl border border-border shadow-card overflow-hidden" @if($jaPagos->count() && !$aPagar->count()) open @endif>
     <summary class="px-5 py-4 cursor-pointer flex items-center justify-between gap-4 hover:bg-surface/50">
       <div>
-        <h3 class="text-base font-bold text-ink">2 · Já pago em {{ $monthLabel }}</h3>
+        <h3 class="text-base font-bold text-ink">2 · Já pago · ganhos de {{ $ganhosLabel }}</h3>
         <p class="text-xs text-muted mt-0.5">{{ $monthTotals['pagos_qtd'] }} motorista(s) com pagamento registrado.</p>
       </div>
       <p class="text-xl font-bold text-green">R$ {{ number_format($monthTotals['paid'], 2, ',', '.') }}</p>
@@ -138,7 +138,7 @@
     </div>
     @else
     <div class="px-5 py-8 text-center border-t border-border">
-      <p class="text-sm text-muted">Nenhum pagamento registrado em {{ $monthLabel }}.</p>
+      <p class="text-sm text-muted">Nenhum pagamento registrado dos ganhos de {{ $ganhosLabel }}.</p>
     </div>
     @endif
   </details>
@@ -194,9 +194,9 @@
 
       @if($missing->count())
       <div class="px-5 py-2.5 bg-slate-100 border-y border-border flex items-center justify-between gap-3 flex-wrap">
-        <h4 class="text-sm font-bold text-slate-700">Não confirmaram {{ $monthLabel }} ({{ $missing->count() }})</h4>
-        <a href="{{ route('admin.driver-pix.index', ['tab' => 'links', 'month' => $month]) }}"
-           class="text-[11px] font-bold text-green hover:underline">Gerar link de {{ $monthLabel }} →</a>
+        <h4 class="text-sm font-bold text-slate-700">Não confirmaram os ganhos de {{ $ganhosLabel }} ({{ $missing->count() }})</h4>
+        <a href="{{ route('admin.driver-pix.index', ['tab' => 'links', 'ganhos' => $ganhosMes]) }}"
+           class="text-[11px] font-bold text-green hover:underline">Gerar link →</a>
       </div>
       <div class="divide-y divide-border">
         @foreach($missing as $card)
@@ -218,7 +218,7 @@
 
       @unless($pendencias)
       <div class="px-5 py-8 text-center">
-        <p class="text-sm text-muted">Nenhuma pendência em {{ $monthLabel }}.</p>
+        <p class="text-sm text-muted">Nenhuma pendência nos ganhos de {{ $ganhosLabel }}.</p>
       </div>
       @endunless
     </div>
@@ -248,7 +248,7 @@
 
       <div class="p-5 space-y-4">
         <div class="bg-surface rounded-xl p-3 space-y-1.5 text-xs">
-          <div class="flex justify-between gap-2"><span class="text-muted">Competência</span><span class="font-bold" id="modalMonth">{{ $monthLabel }}</span></div>
+          <div class="flex justify-between gap-2"><span class="text-muted">Ganhos de</span><span class="font-bold" id="modalMonth">{{ $ganhosLabel }}</span></div>
           <div class="flex justify-between gap-2"><span class="text-muted">Ônibus</span><span class="font-bold" id="modalBus"></span></div>
           <div class="flex justify-between gap-2"><span class="text-muted">Telefone</span><span class="font-semibold" id="modalPhone"></span></div>
           <div class="flex justify-between items-start gap-2">
@@ -282,7 +282,7 @@
           </div>
           <div>
             <label class="block text-xs font-semibold text-ink mb-1">Descrição <span class="text-muted font-normal">(opcional)</span></label>
-            <input type="text" name="description" id="modalDescription" placeholder="Ex: Pagamento {{ $monthLabel }}"
+            <input type="text" name="description" id="modalDescription" placeholder="Ex: Prêmio — ganhos de {{ $ganhosLabel }}"
                    class="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:ring-2 focus:ring-green/30 focus:border-green">
           </div>
           <div class="flex gap-2 pt-1">
@@ -373,7 +373,7 @@
     let modalProfileId = null;
     let qrTimer = null;
     const pixQrBase = @json(url('admin/pagamentos-motoristas'));
-    const monthLabel = @json($monthLabel);
+    const monthLabel = @json($ganhosLabel);
 
     function bindButtons(selector, handler) {
         document.querySelectorAll(selector).forEach(btn => btn.addEventListener('click', handler));
@@ -382,7 +382,7 @@
     // Abre já com o valor do prêmio preenchido (prêmio do carro ÷ motoristas).
     bindButtons('.btn-register-payment', (e) => {
         const d = e.currentTarget.dataset;
-        openCreateModal(d, d.sugerido || undefined, d.sugerido ? ('Prêmio ' + (d.month || '')) : undefined);
+        openCreateModal(d, d.sugerido || undefined, d.sugerido ? ('Prêmio — ganhos de ' + (d.month || monthLabel)) : undefined);
     });
     bindButtons('.btn-pay-pending', (e) => openPayModal(e.currentTarget.dataset));
     bindButtons('.btn-edit-driver', (e) => openEditModal(e.currentTarget.dataset));

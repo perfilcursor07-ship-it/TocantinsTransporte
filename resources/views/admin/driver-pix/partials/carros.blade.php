@@ -5,20 +5,20 @@
 
 <div class="space-y-4">
 
-    {{-- Seletor de competência --}}
+    {{-- Seletor do mês de ganhos --}}
     <div class="bg-white rounded-2xl border border-border shadow-card p-4">
         <form method="GET" class="flex flex-wrap gap-3 items-end">
             <input type="hidden" name="tab" value="carros">
             <div class="min-w-[220px]">
-                <label class="block text-[10px] font-bold uppercase text-muted tracking-wider mb-1">Competência (mês)</label>
-                <select name="month" onchange="this.form.submit()"
+                <label class="block text-[10px] font-bold uppercase text-muted tracking-wider mb-1">Mês dos ganhos</label>
+                <select name="ganhos" onchange="this.form.submit()"
                         class="w-full px-3 py-2.5 border border-border rounded-xl text-sm font-semibold bg-white focus:border-green">
                     @foreach($monthOptions as $value => $label)
-                    <option value="{{ $value }}" @selected($month === $value)>{{ $label }}</option>
+                    <option value="{{ $value }}" @selected($ganhosMes === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
             </div>
-            <p class="text-xs text-muted pb-3">Abre sempre no mês atual. Troque para conferir meses anteriores.</p>
+            <p class="text-xs text-muted pb-3">Abre sempre nos ganhos do mês passado, que são os que estão sendo pagos agora.</p>
         </form>
     </div>
 
@@ -68,7 +68,7 @@
         <div class="px-5 py-4 border-b border-border flex items-center justify-between flex-wrap gap-2">
             <div>
                 <h3 class="font-bold text-ink">Quanto cada carro fez em {{ $ganhosLabel }}</h3>
-                <p class="text-xs text-muted mt-0.5">Pago na competência {{ $monthLabel }}. O prêmio é do carro e dividido entre os motoristas dele.</p>
+                <p class="text-xs text-muted mt-0.5">Período de {{ $ganhosPeriodo }}, pago em {{ $monthLabel }}. O prêmio é do carro e dividido entre os motoristas dele.</p>
             </div>
         </div>
 
