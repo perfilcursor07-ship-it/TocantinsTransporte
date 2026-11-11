@@ -441,6 +441,42 @@
                         @enderror
                     </div>
 
+                    <!-- Formas de pagamento oferecidas no portal -->
+                    @php $paymentMethods = old('payment_methods', $settings['payment_methods'] ?? 'pix'); @endphp
+                    <div class="mb-6">
+                        <label class="block text-sm font-bold text-gray-700 mb-3">
+                            💳 Formas de pagamento no portal
+                        </label>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            @foreach ([
+                                'pix' => ['Só PIX', 'Como funciona hoje.'],
+                                'both' => ['PIX e cartão', 'O passageiro escolhe na tela de pagamento.'],
+                                'card' => ['Só cartão de crédito', 'O código PIX fica escondido.'],
+                            ] as $value => [$title, $hint])
+                                <label class="relative flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all hover:border-blue-500 {{ $paymentMethods == $value ? 'border-blue-500 bg-blue-50' : 'border-gray-300' }}">
+                                    <input
+                                        type="radio"
+                                        name="payment_methods"
+                                        value="{{ $value }}"
+                                        {{ $paymentMethods == $value ? 'checked' : '' }}
+                                        class="mr-3"
+                                    >
+                                    <div>
+                                        <p class="font-bold text-gray-800">{{ $title }}</p>
+                                        <p class="text-xs text-gray-500">{{ $hint }}</p>
+                                    </div>
+                                </label>
+                            @endforeach
+                        </div>
+                        <p class="mt-2 text-xs text-gray-500">
+                            O cartão é cobrado pelo PagBank (crédito à vista, 1x) com a conta e o token abaixo, mesmo que o gateway PIX seja outro.
+                            Se o PagBank não responder, o portal volta a mostrar só o PIX.
+                        </p>
+                        @error('payment_methods')
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
                     <!-- Campos PagBank (aparecem quando PagBank está selecionado) -->
                     <div id="pagbank-fields" class="mt-6 p-4 bg-blue-50 rounded-xl border-2 border-blue-200" style="display: {{ $settings['pix_gateway'] == 'pagbank' ? 'block' : 'none' }};">
                         <h3 class="text-lg font-bold text-blue-800 mb-4 flex items-center">

@@ -1792,6 +1792,10 @@
     <script src="{{ asset('js/qrcode.min.js') }}"></script>
     <script src="{{ asset('js/interval-plan.js') }}?v={{ filemtime(public_path('js/interval-plan.js')) }}"></script>
     <script src="{{ asset('js/portal.js') }}?v={{ filemtime(public_path('js/portal.js')) }}"></script>
+    {{-- Cartão de crédito: só carrega se ligado em /admin/settings. Não altera o portal.js. --}}
+    @if(\App\Services\PagBankCardService::cardEnabled())
+    <script src="{{ asset('js/portal-card.js') }}?v={{ @filemtime(public_path('js/portal-card.js')) }}" defer></script>
+    @endif
 
     @if($discount_offer_enabled ?? false)
     <script>

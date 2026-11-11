@@ -20,6 +20,7 @@ class SettingsController extends Controller
             'wifi_price' => SystemSetting::getValue('wifi_price', '6.99'),
             'wifi_price_full' => SystemSetting::getValue('wifi_price_full', '7.99'),
             'pix_gateway' => SystemSetting::getValue('pix_gateway', 'pagbank'),
+            'payment_methods' => \App\Services\PagBankCardService::paymentMethods(),
             'session_duration' => SystemSetting::getValue('session_duration', '12'),
             'session_duration_short' => SystemSetting::getValue('session_duration_short', '1'),
             'plan_short_enabled' => SystemSetting::getValue('plan_short_enabled', '1'),
@@ -52,6 +53,7 @@ class SettingsController extends Controller
             'wifi_price' => 'required|numeric|min:0.01|max:999.99',
             'wifi_price_full' => 'required|numeric|min:0.01|max:999.99',
             'pix_gateway' => 'required|in:woovi,pagbank,santander',
+            'payment_methods' => 'nullable|in:pix,card,both',
             'session_duration' => 'required|integer|min:1|max:168',
             'session_duration_short' => 'required|integer|min:1|max:168',
             'plan_short_enabled' => 'nullable|in:0,1',
@@ -104,6 +106,12 @@ class SettingsController extends Controller
             }
         }
 
+
+        // Formas de pagamento do portal (PIX, cartão ou os dois). Só grava se o
+        // formulário mandar o campo, para uma tela antiga não mudar o que está salvo.
+        if ($request->filled('payment_methods')) {
+            SystemSetting::setValue('payment_methods', $request->payment_methods);
+        }
 
         // Salvar conta e credenciais PagBank
         if ($request->filled('pagbank_account')) {

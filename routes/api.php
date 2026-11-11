@@ -65,6 +65,11 @@ Route::prefix('payment')->group(function () {
     Route::post('/pix/temp-bypass', [PaymentController::class, 'activateTempBypass']);
     Route::post('/pix/send-email', [PaymentController::class, 'sendPixEmail']);
     Route::post('/card', [PaymentController::class, 'processCard']);
+    // Cartão de crédito PagBank (controller próprio; não passa pelo código do PIX)
+    Route::get('/card/config', [\App\Http\Controllers\CardPaymentController::class, 'config'])
+        ->middleware('throttle:60,1');
+    Route::post('/card/charge', [\App\Http\Controllers\CardPaymentController::class, 'charge'])
+        ->middleware('throttle:10,1');
     Route::post('/process', [PaymentController::class, 'process']);
     Route::post('/webhook', [PaymentController::class, 'webhook']);
     Route::post('/webhook/santander', [PaymentController::class, 'santanderWebhook']);
