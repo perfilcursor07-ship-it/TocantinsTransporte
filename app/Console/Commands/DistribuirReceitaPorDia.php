@@ -9,47 +9,54 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Espalha pelos dias do mês os pagamentos lançados em bloco no dia 15 às 12:00.
+ * Espalha pelos dias do período os pagamentos lançados em bloco num dia só.
  *
- * Contexto: os pagamentos concluídos de Setembro e Outubro/2026 foram
- * recarregados no banco todos com a mesma data (dia 15, 12:00), então o
- * gráfico "Receita por dia" do relatório mostra um ponto só. O dia real de
- * cada pagamento não existe mais no banco.
+ * Contexto: pagamentos concluídos de vários períodos de 2026 foram
+ * recarregados no banco todos com a mesma data e hora (ex.: dia 15 às 12:00,
+ * ou 01/06 às 12:00), então o gráfico "Receita por dia" do relatório mostra
+ * um ponto só. O dia real de cada pagamento não existe mais no banco.
+ *
+ * Aceita um mês cheio (AAAA-MM) ou um período do relatório
+ * (--inicio=AAAA-MM-DD --fim=AAAA-MM-DD, os dois dias inclusive).
  *
  * O que este comando faz é uma ESTIMATIVA: cada pagamento recebe a data e a
- * hora de uma conexão real (wifi_sessions) do mesmo ônibus no mesmo mês, de
+ * hora de uma conexão real (wifi_sessions) do mesmo ônibus no mesmo período, de
  * modo que os dias com mais movimento recebem mais pagamentos.
  *
- * O que NÃO muda: valor, ônibus, status, quantidade e o mês de cada pagamento.
+ * O que NÃO muda: valor, ônibus, status e quantidade; nenhum pagamento sai do
+ * período informado.
  * Logo, receita total, receita por ônibus, ticket médio e prêmio de motorista
  * ficam idênticos — o comando confere isso e desfaz tudo se algo divergir.
  *
- * Simula por padrão. Só grava com --aplicar. --desfazer volta ao dia 15.
+ * Simula por padrão. Só grava com --aplicar. --desfazer volta à data do bloco.
  */
 class DistribuirReceitaPorDia extends Command
 {
     protected $signature = 'relatorio:distribuir-receita-por-dia
-                            {mes : Mês a distribuir, no formato AAAA-MM}
+                            {mes? : Mês a distribuir, no formato AAAA-MM}
+                            {--inicio= : Primeiro dia do período (AAAA-MM-DD), no lugar do mês}
+                            {--fim= : Último dia do período (AAAA-MM-DD), inclusive}
                             {--aplicar : Grava as alterações (sem isto, apenas simula)}
-                            {--desfazer : Devolve ao dia 15 às 12:00 o que este comando distribuiu}';
+                            {--desfazer : Devolve à data original o que este comando distribuiu}';
 
-    protected $description = 'Distribui (estimativa) pelos dias do mês os pagamentos carregados em bloco no dia 15';
+    protected $description = 'Distribui (estimativa) pelos dias do período os pagamentos carregados em bloco num dia só';
 
     private Carbon $inicio;
 
+    /** Exclusivo: primeiro instante DEPOIS do período. */
     private Carbon $fim;
+
+    /** Identifica o período no arquivo de backup: "2026-10" ou "2026-05-21_2026-06-20". */
+    private string $chave;
+
+    /** Um bloco é uma mesma data/hora repetida em pelo menos tantos pagamentos. */
+    private const MINIMO_DO_BLOCO = 10;
 
     public function handle(): int
     {
-        if (! DriverPixProfileMonth::isValidMonthInput($this->argument('mes'))) {
-            $this->error('Mês inválido. Use o formato AAAA-MM, ex.: 2026-10.');
-
+        if (! $this->lerPeriodo()) {
             return self::FAILURE;
         }
-
-        // normalizeMonth monta a data por ano/mês: não transborda em dias 29-31.
-        $this->inicio = DriverPixProfileMonth::normalizeMonth($this->argument('mes'));
-        $this->fim = $this->inicio->copy()->addMonthNoOverflow();
 
         if ($this->option('desfazer')) {
             return $this->desfazer();
@@ -58,7 +65,7 @@ class DistribuirReceitaPorDia extends Command
         $pagamentos = $this->pagamentosEmBloco();
 
         if ($pagamentos->isEmpty()) {
-            $this->warn('Nenhum pagamento em bloco (dia 15 às 12:00) nesse mês. Nada a fazer.');
+            $this->warn('Nenhum pagamento em bloco (mesma data e hora) nesse período. Nada a fazer.');
 
             return self::SUCCESS;
         }
@@ -76,34 +83,93 @@ class DistribuirReceitaPorDia extends Command
         return $this->gravar($pagamentos, $novasDatas);
     }
 
-    private function dataDoBloco(): string
+    /** Mês cheio (argumento) ou período do relatório (--inicio/--fim). */
+    private function lerPeriodo(): bool
     {
-        return $this->inicio->format('Y-m') . '-15 12:00:00';
+        $inicio = (string) $this->option('inicio');
+        $fim = (string) $this->option('fim');
+
+        if ($inicio !== '' || $fim !== '') {
+            $formato = '/^\d{4}-\d{2}-\d{2}$/';
+            if (! preg_match($formato, $inicio) || ! preg_match($formato, $fim)) {
+                $this->error('Informe --inicio e --fim no formato AAAA-MM-DD, ex.: --inicio=2026-05-21 --fim=2026-06-20.');
+
+                return false;
+            }
+
+            $this->inicio = Carbon::parse($inicio)->startOfDay();
+            $this->fim = Carbon::parse($fim)->startOfDay()->addDay();
+            $this->chave = $inicio . '_' . $fim;
+
+            if ($this->fim->lte($this->inicio)) {
+                $this->error('O fim do período tem de ser depois do início.');
+
+                return false;
+            }
+
+            return true;
+        }
+
+        if (! DriverPixProfileMonth::isValidMonthInput($this->argument('mes'))) {
+            $this->error('Informe o mês (AAAA-MM, ex.: 2026-10) ou o período com --inicio e --fim.');
+
+            return false;
+        }
+
+        // normalizeMonth monta a data por ano/mês: não transborda em dias 29-31.
+        $this->inicio = DriverPixProfileMonth::normalizeMonth($this->argument('mes'));
+        $this->fim = $this->inicio->copy()->addMonthNoOverflow();
+        $this->chave = $this->inicio->format('Y-m');
+
+        return true;
+    }
+
+    private function rotuloDoPeriodo(): string
+    {
+        return $this->inicio->format('d/m/Y') . ' a ' . $this->fim->copy()->subDay()->format('d/m/Y');
     }
 
     private function arquivoDeBackup(): string
     {
-        return 'receita-por-dia/' . $this->inicio->format('Y-m') . '.json';
+        return 'receita-por-dia/' . $this->chave . '.json';
     }
 
-    /**
-     * Só os registros da carga em bloco: concluídos, criados e pagos exatamente
-     * no dia 15 às 12:00 e sem dados de PIX. Pagamento real nunca casa com isso.
-     */
-    private function pagamentosEmBloco()
+    /** Concluídos sem dados de PIX e com criação = pagamento: o formato da carga em bloco. */
+    private function candidatos()
     {
         return DB::table('payments')
             ->where('status', 'completed')
-            ->where('created_at', $this->dataDoBloco())
-            ->where('paid_at', $this->dataDoBloco())
+            ->where('created_at', '>=', $this->inicio)
+            ->where('created_at', '<', $this->fim)
+            ->whereColumn('created_at', 'paid_at')
             ->whereNull('payment_data')
-            ->whereNull('pix_emv_string')
-            ->orderBy('id')
-            ->get(['id', 'amount', 'bus_mikrotik_id']);
+            ->whereNull('pix_emv_string');
     }
 
     /**
-     * Horários reais de conexão no mês, por ônibus: [serial => [datetime, ...]].
+     * Só os registros da carga em bloco: além do formato acima, a mesma data e
+     * hora tem de se repetir em vários pagamentos. Pagamento real, com dados
+     * de PIX e horário próprio, nunca casa com isso.
+     */
+    private function pagamentosEmBloco()
+    {
+        $blocos = $this->candidatos()
+            ->groupBy('created_at')
+            ->havingRaw('COUNT(*) >= ?', [self::MINIMO_DO_BLOCO])
+            ->pluck('created_at');
+
+        if ($blocos->isEmpty()) {
+            return collect();
+        }
+
+        return $this->candidatos()
+            ->whereIn('created_at', $blocos)
+            ->orderBy('id')
+            ->get(['id', 'amount', 'bus_mikrotik_id', 'created_at']);
+    }
+
+    /**
+     * Horários reais de conexão no período, por ônibus: [serial => [datetime, ...]].
      * A chave '*' junta todos, para ônibus sem conexão registrada.
      */
     private function conexoesPorOnibus(): array
@@ -162,10 +228,10 @@ class DistribuirReceitaPorDia extends Command
         return ($data->gte($limite) ? $limite->copy()->subMinute() : $data)->format('Y-m-d H:i:s');
     }
 
-    /** Sem nenhuma conexão no mês: espalha por igual, ao meio-dia. */
+    /** Sem nenhuma conexão no período: espalha por igual, ao meio-dia. */
     private function uniforme(int $i, int $n): string
     {
-        $dia = (int) floor($i * $this->inicio->daysInMonth / $n);
+        $dia = (int) floor($i * $this->inicio->diffInDays($this->fim) / $n);
 
         return $this->inicio->copy()->addDays($dia)->setTime(12, 0)->format('Y-m-d H:i:s');
     }
@@ -175,11 +241,12 @@ class DistribuirReceitaPorDia extends Command
         $this->info(sprintf(
             '%s %s — %d pagamento(s), R$ %s',
             $this->option('aplicar') ? 'APLICANDO' : 'SIMULAÇÃO —',
-            DriverPixProfileMonth::labelFor($this->inicio),
+            $this->rotuloDoPeriodo(),
             $pagamentos->count(),
             number_format((float) $pagamentos->sum('amount'), 2, ',', '.')
         ));
-        $this->line('Hoje estão todos em ' . Carbon::parse($this->dataDoBloco())->format('d/m/Y H:i') . '.');
+        $this->line('Hoje estão todos em: ' . $pagamentos->pluck('created_at')->unique()
+            ->map(fn ($d) => Carbon::parse($d)->format('d/m/Y H:i'))->implode(', ') . '.');
         $this->line('<comment>A distribuição é uma estimativa pelo movimento de conexões, não o histórico real.</comment>');
         $this->newLine();
 
@@ -197,10 +264,10 @@ class DistribuirReceitaPorDia extends Command
             'R$ ' . number_format($d['total'], 2, ',', '.'),
         ])->values()->all());
 
-        $this->line(sprintf('%d dia(s) com receita. Total por ônibus e do mês não mudam.', count($porDia)));
+        $this->line(sprintf('%d dia(s) com receita. Total por ônibus e do período não mudam.', count($porDia)));
     }
 
-    /** Receita e quantidade por ônibus no mês — a foto que não pode mudar. */
+    /** Receita e quantidade por ônibus no período — a foto que não pode mudar. */
     private function totaisPorOnibus(): array
     {
         return DB::table('payments')
@@ -222,10 +289,10 @@ class DistribuirReceitaPorDia extends Command
 
         // Guarda os ids antes de mexer: é o que permite o --desfazer.
         Storage::disk('local')->put($this->arquivoDeBackup(), json_encode([
-            'mes' => $this->inicio->format('Y-m'),
-            'data_original' => $this->dataDoBloco(),
+            'periodo' => $this->chave,
             'gerado_em' => now()->toDateTimeString(),
-            'ids' => $pagamentos->pluck('id')->all(),
+            // id => data original, para o --desfazer devolver cada um ao seu bloco.
+            'originais' => $pagamentos->pluck('created_at', 'id')->all(),
         ]));
 
         try {
@@ -256,8 +323,7 @@ class DistribuirReceitaPorDia extends Command
             'Pronto: %d pagamento(s) distribuídos. Totais por ônibus conferidos e iguais.',
             count($novas)
         ));
-        $this->line('Para voltar atrás: php artisan relatorio:distribuir-receita-por-dia '
-            . $this->inicio->format('Y-m') . ' --desfazer');
+        $this->line('Para voltar atrás, repita o mesmo comando trocando --aplicar por --desfazer.');
 
         return self::SUCCESS;
     }
@@ -265,29 +331,32 @@ class DistribuirReceitaPorDia extends Command
     private function desfazer(): int
     {
         if (! Storage::disk('local')->exists($this->arquivoDeBackup())) {
-            $this->error('Não há distribuição registrada para esse mês neste servidor.');
+            $this->error('Não há distribuição registrada para esse período neste servidor.');
 
             return self::FAILURE;
         }
 
         $backup = json_decode(Storage::disk('local')->get($this->arquivoDeBackup()), true);
-        $ids = $backup['ids'] ?? [];
-        $original = $backup['data_original'] ?? $this->dataDoBloco();
+        // Backups antigos (só mês) guardavam uma lista de ids e uma data única.
+        $originais = $backup['originais']
+            ?? array_fill_keys($backup['ids'] ?? [], $backup['data_original'] ?? null);
 
         $feitos = 0;
-        DB::transaction(function () use ($ids, $original, &$feitos) {
-            foreach (array_chunk($ids, 500) as $lote) {
-                $feitos += DB::table('payments')
-                    ->whereIn('id', $lote)
-                    ->where('status', 'completed')
-                    ->where('created_at', '>=', $this->inicio)
-                    ->where('created_at', '<', $this->fim)
-                    ->update(['created_at' => $original, 'paid_at' => $original, 'updated_at' => $original]);
+        DB::transaction(function () use ($originais, &$feitos) {
+            foreach (collect($originais)->filter()->groupBy(fn ($data) => $data, true) as $data => $doBloco) {
+                foreach (array_chunk($doBloco->keys()->all(), 500) as $lote) {
+                    $feitos += DB::table('payments')
+                        ->whereIn('id', $lote)
+                        ->where('status', 'completed')
+                        ->where('created_at', '>=', $this->inicio)
+                        ->where('created_at', '<', $this->fim)
+                        ->update(['created_at' => $data, 'paid_at' => $data, 'updated_at' => $data]);
+                }
             }
         });
 
         Storage::disk('local')->delete($this->arquivoDeBackup());
-        $this->info("Desfeito: {$feitos} pagamento(s) de volta em " . Carbon::parse($original)->format('d/m/Y H:i') . '.');
+        $this->info("Desfeito: {$feitos} pagamento(s) de volta à data original.");
 
         return self::SUCCESS;
     }
