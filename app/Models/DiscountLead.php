@@ -101,23 +101,116 @@ class DiscountLead extends Model
     /**
      * Desconto ainda válido para este aparelho?
      *
-     * Vale enquanto o passageiro não pagou — o desconto é concedido depois de
-     * ele ver a proposta e precisa sobreviver a um refresh da página do portal.
+     * O desconto vale por um tempo limitado (Admin > Sistema > Descontos) e uma
+     * vez só: depois que o passageiro paga, ou quando o prazo vence, o preço
+     * volta ao normal. Nesse intervalo ele sobrevive a um refresh do portal.
      */
-    public static function activeDiscountFor(?string $macAddress, int $validMinutes = 60): ?self
+    public static function activeDiscountFor(?string $macAddress, ?int $validMinutes = null): ?self
     {
         $mac = strtoupper(trim((string) $macAddress));
         if ($mac === '') {
             return null;
         }
 
+        $validMinutes ??= \App\Helpers\SettingsHelper::getDiscountValidityMinutes();
+
         // Só desconto de proposta (com CPF, enviada ao parceiro).
-        return static::where('mac_address', $mac)
+        $lead = static::where('mac_address', $mac)
             ->whereNotNull('handoff_id')
             ->whereNotNull('cpf')
             ->whereNotNull('discount_granted_at')
             ->where('discount_granted_at', '>=', now()->subMinutes($validMinutes))
             ->orderByDesc('id')
             ->first();
+
+        return $lead && ! $lead->usedPayment() ? $lead : null;
+    }
+
+    /** Até quando o desconto liberado pode ser usado. */
+    public function discountExpiresAt(): ?\Illuminate\Support\Carbon
+    {
+        return $this->discount_granted_at
+            ? $this->discount_granted_at->copy()->addMinutes(\App\Helpers\SettingsHelper::getDiscountValidityMinutes())
+            : null;
+    }
+
+    /**
+     * Pagamento que usou este desconto: o primeiro pagamento concluído do
+     * passageiro depois da liberação, dentro do prazo.
+     *
+     * Não há gravação no fluxo de pagamento para isso — é calculado na leitura,
+     * então nada aqui consegue atrapalhar um pagamento. A folga de 30 minutos
+     * cobre o PIX gerado no fim do prazo e pago logo depois.
+     */
+    public function usedPayment(): ?Payment
+    {
+        if (! $this->discount_granted_at) {
+            return null;
+        }
+
+        $userIds = collect([$this->user_id]);
+        if ($this->mac_address) {
+            $userIds = $userIds->merge(User::where('mac_address', $this->mac_address)->pluck('id'));
+        }
+        $userIds = $userIds->filter()->unique()->values();
+        if ($userIds->isEmpty()) {
+            return null;
+        }
+
+        return Payment::whereIn('user_id', $userIds)
+            ->where('status', 'completed')
+            ->where('paid_at', '>=', $this->discount_granted_at)
+            ->where('paid_at', '<=', $this->discountExpiresAt()->copy()->addMinutes(30))
+            ->orderBy('paid_at')
+            ->first();
+    }
+
+    /**
+     * Situação do desconto, para o portal e para a tela de controle:
+     * sem_desconto | ativo | usado | vencido.
+     */
+    public function discountState(): string
+    {
+        if (! $this->discount_granted_at) {
+            return 'sem_desconto';
+        }
+        if ($this->usedPayment()) {
+            return 'usado';
+        }
+
+        return $this->discountExpiresAt()->isFuture() ? 'ativo' : 'vencido';
+    }
+
+    /**
+     * Este passageiro já ganhou desconto nos últimos X dias? Confere pelo
+     * aparelho, pelo telefone e pelo CPF, porque qualquer um deles pode mudar.
+     */
+    public static function earnedRecently(int $days, ?string $macAddress = null, ?string $phone = null, ?string $cpf = null): bool
+    {
+        if ($days <= 0) {
+            return false;
+        }
+
+        $mac = strtoupper(trim((string) $macAddress));
+        $phone = preg_replace('/\D/', '', (string) $phone);
+        $cpf = preg_replace('/\D/', '', (string) $cpf);
+        if ($mac === '' && $phone === '' && $cpf === '') {
+            return false;
+        }
+
+        return static::whereNotNull('discount_granted_at')
+            ->where('discount_granted_at', '>=', now()->subDays($days))
+            ->where(function ($q) use ($mac, $phone, $cpf) {
+                if ($mac !== '') {
+                    $q->orWhere('mac_address', $mac);
+                }
+                if ($phone !== '') {
+                    $q->orWhere('phone', $phone);
+                }
+                if ($cpf !== '') {
+                    $q->orWhere('cpf', $cpf);
+                }
+            })
+            ->exists();
     }
 }

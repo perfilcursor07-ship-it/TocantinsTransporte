@@ -185,6 +185,32 @@ class SettingsHelper
     }
 
     /**
+     * Por quantos minutos o desconto vale depois de liberado. Passado esse
+     * tempo (ou depois que o passageiro paga), o preço volta ao normal.
+     */
+    public static function getDiscountValidityMinutes(): int
+    {
+        $value = (int) Cache::remember('discount_validity_minutes', 3600, function () {
+            return SystemSetting::getValue('discount_validity_minutes', '60');
+        });
+
+        return max(5, min(1440, $value));
+    }
+
+    /**
+     * Dias que o mesmo passageiro (aparelho, telefone ou CPF) precisa esperar
+     * para ganhar outro desconto. 0 = pode ganhar de novo sempre que vir a proposta.
+     */
+    public static function getDiscountRepeatDays(): int
+    {
+        $value = (int) Cache::remember('discount_repeat_days', 3600, function () {
+            return SystemSetting::getValue('discount_repeat_days', '0');
+        });
+
+        return max(0, min(365, $value));
+    }
+
+    /**
      * Quantos segundos a proposta do parceiro fica aberta na outra aba antes
      * de o portal fechá-la e levar o passageiro ao pagamento. 0 desliga: a aba
      * fica aberta até o passageiro voltar sozinho.
@@ -285,5 +311,7 @@ class SettingsHelper
         Cache::forget('video_discount_amount');
         Cache::forget('cashcash_min_seconds');
         Cache::forget('cashcash_return_seconds');
+        Cache::forget('discount_validity_minutes');
+        Cache::forget('discount_repeat_days');
     }
 }

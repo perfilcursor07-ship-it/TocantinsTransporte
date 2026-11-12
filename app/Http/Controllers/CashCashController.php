@@ -60,6 +60,22 @@ class CashCashController extends Controller
             ], 422);
         }
 
+        // Intervalo entre descontos do mesmo passageiro (Admin > Sistema >
+        // Descontos). Recusa ANTES de mandar o CPF ao parceiro: sem desconto
+        // para oferecer, não há motivo para compartilhar o dado.
+        if (DiscountLead::earnedRecently(
+            SettingsHelper::getDiscountRepeatDays(),
+            $validated['mac_address'] ?? null,
+            $validated['phone'] ?? null,
+            $cpf
+        )) {
+            return response()->json([
+                'success' => false,
+                'reason' => 'discount_recently_used',
+                'message' => 'Você já ganhou este desconto há pouco tempo. Toque em "Pular e pagar normal" para continuar.',
+            ], 422);
+        }
+
         $ip = $request->ip();
         $userAgent = mb_substr((string) $request->userAgent(), 0, 1024);
         $location = $this->resolveLocation($request, $validated);
@@ -172,10 +188,24 @@ class CashCashController extends Controller
         }
 
         if ($lead->discount_granted_at) {
+            // Já liberado antes: só continua valendo dentro do prazo e sem uso.
+            $state = $lead->discountState();
+            if ($state !== 'ativo') {
+                return response()->json([
+                    'success' => true,
+                    'granted' => false,
+                    'reason' => $state === 'usado' ? 'used' : 'expired',
+                    'message' => $state === 'usado'
+                        ? 'Este desconto já foi usado em um pagamento.'
+                        : 'O prazo do desconto acabou. O preço voltou ao normal.',
+                ]);
+            }
+
             return response()->json([
                 'success' => true,
                 'granted' => true,
                 'discount_amount' => (float) $lead->discount_amount,
+                'expires_in' => max(0, (int) now()->diffInSeconds($lead->discountExpiresAt(), false)),
             ]);
         }
 
@@ -224,6 +254,8 @@ class CashCashController extends Controller
             'success' => true,
             'granted' => true,
             'discount_amount' => $amount,
+            // O portal tira o desconto da tela quando este prazo acaba.
+            'expires_in' => SettingsHelper::getDiscountValidityMinutes() * 60,
         ]);
     }
 

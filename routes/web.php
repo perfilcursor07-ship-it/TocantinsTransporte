@@ -283,6 +283,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin.access'])->gr
         Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
         Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
 
+        // Controle dos descontos da proposta (validade, uso e histórico)
+        Route::get('/descontos', [\App\Http\Controllers\Admin\DiscountControlController::class, 'index'])->name('discounts.index');
+        Route::put('/descontos', [\App\Http\Controllers\Admin\DiscountControlController::class, 'update'])->name('discounts.update');
+
         // Parceiros do espaço de desconto (vídeo / iframe / API)
         Route::prefix('parceiros')->name('sponsors.')->group(function () {
             $c = \App\Http\Controllers\Admin\DiscountSponsorController::class;

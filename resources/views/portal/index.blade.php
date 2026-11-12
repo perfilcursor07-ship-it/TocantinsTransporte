@@ -1508,7 +1508,7 @@
 
         function ganhouDesconto(data) {
             const valor = Number(data.discount_amount) || DISCOUNT_AMOUNT;
-            applyDiscount(valor);
+            applyDiscount(valor, data.expires_in);
             decided = true;
             discountToast(valor);
             continueToPayment();
@@ -1599,9 +1599,22 @@
          * Aplica o desconto nos cards de plano.
          * Mesma mecânica que o vídeo usava — nada de cobrança muda aqui.
          */
-        function applyDiscount(amount) {
+        var descontoTimer = null;
+
+        /**
+         * `segundosDeValidade`: quanto tempo o desconto ainda vale, informado
+         * pelo servidor. Ao fim, o preço volta ao normal mesmo com a página aberta.
+         */
+        function applyDiscount(amount, segundosDeValidade) {
             window.DISCOUNT_APPLIED = true;
             window.DISCOUNT_AMOUNT = amount;
+
+            clearTimeout(descontoTimer);
+            const segundos = Number(segundosDeValidade);
+            if (segundos > 0) {
+                // setTimeout aceita no máximo ~24 dias; a validade vai até 24 horas.
+                descontoTimer = setTimeout(removeDiscount, Math.min(segundos, 86400) * 1000);
+            }
 
             document.querySelectorAll('[data-plan-option]').forEach(function(card) {
                 if (card.dataset.planType === 'interval') return;
@@ -1617,6 +1630,39 @@
 
             const selected = document.querySelector('.plan-card-selected');
             if (selected && typeof selectWifiPlan === 'function') selectWifiPlan(selected);
+        }
+
+        /**
+         * O prazo do desconto acabou: os planos voltam ao preço normal e a oferta
+         * pode ser vista de novo. Um PIX já gerado na tela não é alterado.
+         */
+        function removeDiscount() {
+            clearTimeout(descontoTimer);
+            if (!window.DISCOUNT_APPLIED) return;
+
+            window.DISCOUNT_APPLIED = false;
+            window.DISCOUNT_AMOUNT = 0;
+            decided = false;
+            lead = null;
+
+            document.querySelectorAll('[data-plan-option]').forEach(function(card) {
+                if (card.dataset.planType === 'interval' || !card.dataset.planOriginalPrice) return;
+                const original = Number(card.dataset.planOriginalPrice);
+                card.dataset.planPrice = String(original);
+
+                const display = card.querySelector('[data-plan-price-display]');
+                if (display) display.textContent = 'R$' + original.toFixed(2).replace('.', ',');
+            });
+
+            // Reescolher o plano atualiza o preço cobrado e descarta PIX pré-gerado.
+            const selected = document.querySelector('.plan-card-selected');
+            if (selected && typeof selectWifiPlan === 'function') selectWifiPlan(selected);
+
+            const aviso = document.createElement('div');
+            aviso.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-[200] bg-gray-800 text-white font-bold text-sm px-5 py-3 rounded-xl shadow-2xl';
+            aviso.textContent = 'O prazo do desconto acabou. O preço voltou ao normal.';
+            document.body.appendChild(aviso);
+            setTimeout(function() { aviso.remove(); }, 6000);
         }
 
         function discountToast(amount) {
@@ -1655,7 +1701,7 @@
         // Desconto já concedido (refresh da página ou volta do app): restaura.
         @if($discount_already_granted ?? false)
         document.addEventListener('DOMContentLoaded', function() {
-            applyDiscount({{ $discount_already_granted_amount ?? 0 }});
+            applyDiscount({{ $discount_already_granted_amount ?? 0 }}, {{ (int) ($discount_seconds_left ?? 0) }});
             decided = true;
         });
         @endif
@@ -1669,10 +1715,16 @@
             if (!data) return;
 
             if (data.granted) {
-                applyDiscount(Number(data.discount_amount) || DISCOUNT_AMOUNT);
+                applyDiscount(Number(data.discount_amount) || DISCOUNT_AMOUNT, data.expires_in);
                 decided = true;
                 discountToast(Number(data.discount_amount) || DISCOUNT_AMOUNT);
                 seguirParaPagamentoNaVolta();
+                return;
+            }
+
+            // Desconto que já venceu ou já foi usado: nada a retomar, preço normal.
+            if (data.reason === 'expired' || data.reason === 'used') {
+                lead = null;
                 return;
             }
 

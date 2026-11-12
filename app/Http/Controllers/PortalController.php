@@ -104,6 +104,15 @@ class PortalController extends Controller
             ? null
             : \App\Models\DiscountLead::pendingReturnFor($discountMac);
 
+        // Intervalo entre descontos do mesmo passageiro: dentro dele a oferta
+        // nem aparece (a não ser que haja uma proposta em andamento para retomar).
+        $discountOnCooldown = ! $grantedDiscount && ! $pendingDiscount
+            && \App\Models\DiscountLead::earnedRecently(
+                \App\Helpers\SettingsHelper::getDiscountRepeatDays(),
+                $discountMac,
+                $existingUser->phone ?? null
+            );
+
         return view('portal.index', [
             'client_info' => $clientInfo,
             'company_name' => config('app.company_name', 'WiFi Tocantins Express'),
@@ -121,7 +130,8 @@ class PortalController extends Controller
             'interval_plan' => \App\Services\IntervalPlanService::settings(),
             // Oferta de desconto: só aparece se o admin habilitou E o parceiro está configurado.
             'discount_offer_enabled' => \App\Helpers\SettingsHelper::isVideoDiscountEnabled()
-                && app(\App\Services\CashCashService::class)->isEnabled(),
+                && app(\App\Services\CashCashService::class)->isEnabled()
+                && ! $discountOnCooldown,
             'video_discount_amount' => \App\Helpers\SettingsHelper::getVideoDiscountAmount(),
             'cashcash_min_seconds' => \App\Helpers\SettingsHelper::getCashCashMinSeconds(),
             // Modo "Nova aba": tempo até o portal fechar a proposta e voltar ao pagamento.
@@ -132,6 +142,11 @@ class PortalController extends Controller
             // Desconto já ganho antes de um refresh — restaura sem refazer a proposta.
             'discount_already_granted' => (bool) $grantedDiscount,
             'discount_already_granted_amount' => (float) ($grantedDiscount->discount_amount ?? 0),
+            // Segundos que faltam para o desconto vencer: o portal tira o desconto
+            // da tela nessa hora, mesmo que a página continue aberta.
+            'discount_seconds_left' => $grantedDiscount
+                ? max(0, (int) now()->diffInSeconds($grantedDiscount->discountExpiresAt(), false))
+                : 0,
             'discount_pending_lead_id' => $pendingDiscount->id ?? null,
             // Texto de autorização montado do cadastro do parceiro: o passageiro
             // precisa ver QUEM recebe e QUAIS dados saem, senão o consentimento
