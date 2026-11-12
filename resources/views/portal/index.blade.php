@@ -782,11 +782,11 @@
                         class="mt-4 w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold py-3.5 rounded-xl shadow-md text-sm transition-all active:scale-[0.98] disabled:opacity-60">
                         Quero receber a proposta
                     </button>
-                    @if(($discount_open_in ?? '') === 'popup' && ($cashcash_return_seconds ?? 0) > 0)
-                        <p class="mt-1.5 text-[11px] text-gray-500 text-center leading-snug">
-                            A proposta abre em outra aba por {{ max((int) $cashcash_return_seconds, (int) ($cashcash_min_seconds ?? 20)) }} segundos. Depois ela fecha sozinha e você volta aqui para pagar com desconto.
-                        </p>
-                    @endif
+                    {{-- Vale para os dois casos: aba à parte (navegador comum) e mesma
+                         janela (tela de login do WiFi). O passo a passo aparece depois. --}}
+                    <p class="mt-1.5 text-[11px] text-gray-500 text-center leading-snug">
+                        Você vê a proposta por alguns segundos e volta aqui para pagar com desconto.
+                    </p>
 
                     <button onclick="skipDiscountOffer()" class="mt-2 w-full text-[13px] font-semibold text-gray-500 hover:text-gray-700 py-2 underline">
                         Pular e pagar normal
@@ -880,6 +880,41 @@
         </div>
     </div>
 
+    <!-- Aviso antes de a proposta tomar o lugar do portal (tela de login do WiFi,
+         que não tem abas). O passageiro precisa saber como voltar para pagar. -->
+    <div id="discount-leaving-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] hidden">
+        <div class="flex items-center justify-center h-full p-4">
+            <div class="bg-white rounded-2xl w-full max-w-sm animate-slide-up shadow-2xl overflow-hidden">
+                <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-5 py-4 text-center">
+                    <p class="text-white font-extrabold text-base">Sua proposta vai abrir</p>
+                    <p id="discount-leaving-timer" class="text-purple-100 text-xs mt-1 tabular-nums"></p>
+                </div>
+
+                <div class="p-5">
+                    <div class="rounded-xl border-2 border-emerald-300 bg-emerald-50 p-4 text-center">
+                        <p class="text-[15px] font-extrabold text-emerald-900 leading-snug">
+                            Depois de ver a proposta, toque em <span class="whitespace-nowrap">VOLTAR ◁</span> para pagar com
+                            R$ {{ number_format($video_discount_amount ?? 1, 2, ',', '.') }} de desconto.
+                        </p>
+                    </div>
+
+                    <p class="text-[13px] text-gray-600 leading-snug mt-3 text-center">
+                        Fique na proposta pelo menos {{ (int) ($cashcash_min_seconds ?? 20) }} segundos. Ao voltar, o desconto já aparece no preço.
+                    </p>
+
+                    <button type="button" onclick="openProposalNow()"
+                        class="mt-4 w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl shadow-md text-sm transition-all active:scale-[0.98]">
+                        Abrir a proposta agora
+                    </button>
+
+                    <button onclick="skipDiscountOffer()" class="mt-1 w-full text-[13px] font-semibold text-gray-500 hover:text-gray-700 py-2 underline">
+                        Pular e pagar normal, sem desconto
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Proposta do parceiro aberta DENTRO do portal (cadastro do parceiro em "Modal") -->
     <div id="discount-frame-modal" class="fixed inset-0 bg-black/70 z-[75] hidden">
         <div class="flex flex-col h-full w-full max-w-lg mx-auto bg-white sm:my-4 sm:h-[calc(100%-2rem)] sm:rounded-2xl overflow-hidden shadow-2xl">
@@ -929,13 +964,15 @@
         function show(id) { el(id)?.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
         function hide(id) { el(id)?.classList.add('hidden'); }
         function hideAll() {
-            ['discount-choice-modal', 'discount-consent-modal', 'discount-waiting-modal', 'discount-frame-modal', 'discount-opened-modal'].forEach(hide);
+            ['discount-choice-modal', 'discount-consent-modal', 'discount-waiting-modal', 'discount-frame-modal', 'discount-opened-modal', 'discount-leaving-modal'].forEach(hide);
             document.body.style.overflow = 'auto';
         }
 
         /** Segue o fluxo de pagamento original, intocado. */
         function continueToPayment() {
             pararVolta();
+            clearInterval(saidaTimer);      // desistiu na tela "sua proposta vai abrir"
+            saidaUrl = null;
             hideAll();
             if (pendingConnectAction) {
                 const go = pendingConnectAction;
@@ -1070,10 +1107,83 @@
                 return;
             }
 
-            // Mesma aba, como o guia pede. O portal recarrega quando ele voltar
-            // e retoma pelo lead pendente — por isso nada precisa ficar na memória.
-            window.location.replace(data.url);      // a url nunca é logada
+            // Mesma janela (é o caso da tela de login do WiFi, que não tem abas).
+            // O portal recarrega quando ele voltar e retoma pelo lead pendente —
+            // por isso nada precisa ficar na memória.
+            if (button) { button.disabled = false; button.textContent = 'Quero receber a proposta'; }
+            abrirNaMesmaJanela(data.url);
         };
+
+        // ---------- Proposta na MESMA janela (captive portal) ----------
+        // Na tela de login do WiFi do celular não existe "nova aba": a proposta
+        // toma o lugar do portal. Não há como trazer o passageiro de volta por
+        // código (o portal deixa de existir enquanto a proposta está aberta),
+        // então ele volta pelo botão voltar. Por isso:
+        //  - avisa ANTES de sair, para ele saber como voltar;
+        //  - navega guardando o portal no histórico (href, não replace), senão
+        //    o voltar fecharia a tela em vez de cair aqui;
+        //  - ao voltar, a página é recarregada e o servidor confere o tempo,
+        //    grava que a proposta foi vista e libera o desconto.
+
+        var saidaTimer = null;
+        var saidaUrl = null;
+
+        function abrirNaMesmaJanela(url) {
+            saidaUrl = url;                         // a url nunca é logada
+            hideAll();
+            show('discount-leaving-modal');
+
+            let restam = 4;
+            const aviso = el('discount-leaving-timer');
+            const pintar = function () { if (aviso) aviso.textContent = 'Abrindo em ' + restam + 's...'; };
+            pintar();
+            clearInterval(saidaTimer);
+            saidaTimer = setInterval(function () {
+                restam--;
+                if (restam > 0) { pintar(); return; }
+                window.openProposalNow();
+            }, 1000);
+        }
+
+        window.openProposalNow = function () {
+            clearInterval(saidaTimer);
+            if (!saidaUrl) return;
+            const url = saidaUrl;
+            saidaUrl = null;
+            window.location.href = url;
+        };
+
+        // Voltou pelo botão voltar: o navegador costuma mostrar a página guardada
+        // na memória, sem falar com o servidor — e é o servidor que sabe da
+        // proposta pendente. Recarrega uma vez para retomar por ele.
+        window.addEventListener('pageshow', function (evento) {
+            let tipo = '';
+            try { tipo = performance.getEntriesByType('navigation')[0]?.type || ''; } catch (e) {}
+            if (evento.persisted || tipo === 'back_forward') {
+                window.location.reload();
+            }
+        });
+
+        /**
+         * Desconto confirmado na volta da proposta: segue sozinho para o PIX, pelo
+         * mesmo caminho do botão "conectar". Espera o portal identificar o
+         * aparelho; se não der, o passageiro toca no botão (o desconto já está lá).
+         */
+        function seguirParaPagamentoNaVolta() {
+            let tentativas = 0;
+            const espera = setInterval(function () {
+                tentativas++;
+                const portal = window.wifiPortal;
+                const pronto = portal && typeof portal.handleConnectClick === 'function'
+                    && portal.deviceMac && portal.isValidMacAddress(portal.deviceMac);
+                if (pronto) {
+                    clearInterval(espera);
+                    try { portal.handleConnectClick(); } catch (e) {}
+                } else if (tentativas >= 80) {      // ~8s
+                    clearInterval(espera);
+                }
+            }, 100);
+        }
 
         /**
          * Reabre a proposta. O link do parceiro é de uso único e expira em 5 min,
@@ -1114,7 +1224,9 @@
                         openDiscountFrame(data.url, data.min_seconds);
                         return;
                     }
-                    window.location.replace(data.url);
+                    if (botao) { botao.disabled = false; botao.textContent = textoBotao; }
+                    if (forceRedirect) { window.location.href = data.url; return; }
+                    abrirNaMesmaJanela(data.url);
                     return;
                 }
                 descartarJanela(janela);
@@ -1151,6 +1263,11 @@
             let janela = null;
             try { janela = window.open('', 'proposta_parceiro'); } catch (e) { janela = null; }
             if (!janela) return null;
+
+            // Tela de login do WiFi (e outros navegadores embutidos) não tem abas:
+            // alguns devolvem a PRÓPRIA janela do portal. Mexer nela apagaria o
+            // portal, então isso conta como "não abriu" e segue pela mesma janela.
+            try { if (janela === window || janela === window.top) return null; } catch (e) { return null; }
 
             try {
                 // Cortar o vínculo (opener) impede a página do parceiro de mexer no
@@ -1555,6 +1672,7 @@
                 applyDiscount(Number(data.discount_amount) || DISCOUNT_AMOUNT);
                 decided = true;
                 discountToast(Number(data.discount_amount) || DISCOUNT_AMOUNT);
+                seguirParaPagamentoNaVolta();
                 return;
             }
 

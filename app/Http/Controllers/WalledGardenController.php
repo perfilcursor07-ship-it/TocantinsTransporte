@@ -23,10 +23,13 @@ class WalledGardenController extends Controller
             '10.5.50.1',
             
             // ========== PARCEIRO CASH CASH (proposta de crédito) ==========
-            // Só o APP precisa ser liberado: a API (gw-*.cashcash.com.br) é
-            // chamada servidor-a-servidor e não passa pelo MikroTik.
+            // A proposta abre DENTRO da tela de login do WiFi, sem liberar a
+            // internet do passageiro — por isso estes endereços precisam estar
+            // aqui. A página do app chama do próprio navegador outros
+            // subdomínios (gw-*, tkr), cobertos pelo curinga.
             'app-pwa-cash-dev.rafatella.workers.dev',  // homologação
             'app.cashcash.com.br',                      // produção
+            'cashcash.com.br',
             '*.cashcash.com.br',
 
             // ========== GATEWAYS DE PAGAMENTO ==========
