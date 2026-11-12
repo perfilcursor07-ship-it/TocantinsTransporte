@@ -1223,7 +1223,12 @@
             if (!janela) return null;
 
             try {
-                janela.opener = null;   // a página do parceiro não consegue mexer no portal
+                // Cortar o vínculo (opener) impede a página do parceiro de mexer no
+                // portal, mas também tira do portal o direito de FECHAR esta aba
+                // depois que ela vai para o site do parceiro: o navegador só deixa
+                // fechar uma aba de outro site se o vínculo de quem abriu existir.
+                // Com o contador de volta ligado o vínculo fica; desligado, corta.
+                if (RETURN_SECONDS <= 0) janela.opener = null;
                 janela.document.title = 'Carregando sua proposta...';
                 janela.document.body.innerHTML =
                     '<p style="font-family:sans-serif;text-align:center;margin-top:40vh;color:#555">Carregando sua proposta…</p>';
@@ -1260,10 +1265,29 @@
         var propostaJanela = null;
         var voltaTick = null;
         var voltaFim = 0;
+        var voltaWorker = null;
 
         function pararVolta() {
             clearInterval(voltaTick);
             voltaTick = null;
+            try { if (voltaWorker) voltaWorker.terminate(); } catch (e) {}
+            voltaWorker = null;
+        }
+
+        /**
+         * Com o portal atrás, o navegador atrasa (ou pausa) o setInterval da
+         * página. Um worker continua marcando o tempo por mais tempo, então
+         * ele também avisa a cada meio segundo. Sem worker, fica só o intervalo.
+         */
+        function ligarRelogioDeFundo() {
+            try {
+                if (voltaWorker || !window.Worker || !window.Blob || !window.URL) return;
+                var codigo = new Blob(['setInterval(function(){postMessage(0)},500)'], { type: 'text/javascript' });
+                voltaWorker = new Worker(window.URL.createObjectURL(codigo));
+                voltaWorker.onmessage = conferirVolta;
+            } catch (e) {
+                voltaWorker = null;
+            }
         }
 
         function iniciarVolta(janela) {
@@ -1273,6 +1297,7 @@
 
             voltaFim = Date.now() + RETURN_SECONDS * 1000;
             voltaTick = setInterval(conferirVolta, 500);
+            ligarRelogioDeFundo();
             conferirVolta();
         }
 
