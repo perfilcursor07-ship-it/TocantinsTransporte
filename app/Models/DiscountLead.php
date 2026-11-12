@@ -84,8 +84,34 @@ class DiscountLead extends Model
             return null;
         }
 
+        // Só propostas que realmente foram para o app do parceiro (têm handoff).
+        // A exposição ao anúncio fica de fora: ela é a tela do próprio portal,
+        // então "voltar" a ela é só recarregar a página — e recarregar não pode
+        // valer como ter visto o anúncio.
         return static::where('mac_address', $mac)
             ->where('status', self::STATUS_CREATED)
+            ->whereNotNull('handoff_id')
+            ->whereNull('discount_granted_at')
+            ->whereNotNull('link_opened_at')
+            ->where('link_opened_at', '>=', now()->subMinutes($validMinutes))
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    /**
+     * Exposição ao anúncio (sem CPF, sem handoff) ainda em aberto para o aparelho.
+     */
+    public static function pendingExposureFor(?string $macAddress, int $validMinutes = 30): ?self
+    {
+        $mac = strtoupper(trim((string) $macAddress));
+        if ($mac === '') {
+            return null;
+        }
+
+        return static::where('mac_address', $mac)
+            ->where('status', self::STATUS_CREATED)
+            ->whereNull('handoff_id')
+            ->whereNull('cpf')
             ->whereNull('discount_granted_at')
             ->whereNotNull('link_opened_at')
             ->where('link_opened_at', '>=', now()->subMinutes($validMinutes))

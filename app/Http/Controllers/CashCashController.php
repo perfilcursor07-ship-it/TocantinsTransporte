@@ -161,11 +161,20 @@ class CashCashController extends Controller
 
         $mac = strtoupper(trim((string) ($validated['mac_address'] ?? ''))) ?: null;
 
-        // Já tem exposição em andamento para este aparelho? Reaproveita, para o
-        // contador não reiniciar se a página recarregar.
-        $lead = $mac ? DiscountLead::pendingReturnFor($mac) : null;
+        // Já tem exposição em aberto para este aparelho? Reaproveita o registro,
+        // mas o tempo recomeça AGORA: a tela do anúncio acabou de abrir e o
+        // contador dela também começa do zero. Se o relógio antigo continuasse
+        // valendo, bastaria abrir a oferta, recarregar a página e esperar em
+        // outro lugar para ganhar o desconto sem ver o anúncio.
+        $lead = $mac ? DiscountLead::pendingExposureFor($mac) : null;
 
-        if (!$lead) {
+        if ($lead) {
+            $lead->update([
+                'link_opened_at' => now(),
+                'returned_at' => null,
+                'dwell_seconds' => null,
+            ]);
+        } else {
             $lead = DiscountLead::create([
                 'user_id' => $validated['user_id'] ?? null,
                 'phone' => $validated['phone'] ?? null,
