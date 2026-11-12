@@ -66,11 +66,14 @@ class DiscountLead extends Model
     }
 
     /**
-     * Desconto ainda válido para este aparelho?
-     *
-     * Vale enquanto o passageiro não pagou — o desconto é concedido no retorno
-     * do app e precisa sobreviver a um refresh da página do portal.
+     * É uma proposta de verdade: o passageiro informou o CPF e o parceiro
+     * devolveu o link (handoff). Só esse tipo de registro pode dar desconto.
      */
+    public function isProposal(): bool
+    {
+        return filled($this->cpf) && filled($this->handoff_id);
+    }
+
     /**
      * Proposta aberta e ainda não confirmada para este aparelho.
      *
@@ -85,9 +88,6 @@ class DiscountLead extends Model
         }
 
         // Só propostas que realmente foram para o app do parceiro (têm handoff).
-        // A exposição ao anúncio fica de fora: ela é a tela do próprio portal,
-        // então "voltar" a ela é só recarregar a página — e recarregar não pode
-        // valer como ter visto o anúncio.
         return static::where('mac_address', $mac)
             ->where('status', self::STATUS_CREATED)
             ->whereNotNull('handoff_id')
@@ -99,26 +99,11 @@ class DiscountLead extends Model
     }
 
     /**
-     * Exposição ao anúncio (sem CPF, sem handoff) ainda em aberto para o aparelho.
+     * Desconto ainda válido para este aparelho?
+     *
+     * Vale enquanto o passageiro não pagou — o desconto é concedido depois de
+     * ele ver a proposta e precisa sobreviver a um refresh da página do portal.
      */
-    public static function pendingExposureFor(?string $macAddress, int $validMinutes = 30): ?self
-    {
-        $mac = strtoupper(trim((string) $macAddress));
-        if ($mac === '') {
-            return null;
-        }
-
-        return static::where('mac_address', $mac)
-            ->where('status', self::STATUS_CREATED)
-            ->whereNull('handoff_id')
-            ->whereNull('cpf')
-            ->whereNull('discount_granted_at')
-            ->whereNotNull('link_opened_at')
-            ->where('link_opened_at', '>=', now()->subMinutes($validMinutes))
-            ->orderByDesc('id')
-            ->first();
-    }
-
     public static function activeDiscountFor(?string $macAddress, int $validMinutes = 60): ?self
     {
         $mac = strtoupper(trim((string) $macAddress));
@@ -126,7 +111,10 @@ class DiscountLead extends Model
             return null;
         }
 
+        // Só desconto de proposta (com CPF, enviada ao parceiro).
         return static::where('mac_address', $mac)
+            ->whereNotNull('handoff_id')
+            ->whereNotNull('cpf')
             ->whereNotNull('discount_granted_at')
             ->where('discount_granted_at', '>=', now()->subMinutes($validMinutes))
             ->orderByDesc('id')

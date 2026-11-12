@@ -749,28 +749,17 @@
         <div class="flex items-center justify-center h-full p-4">
             <div class="bg-white rounded-2xl w-full max-w-sm animate-slide-up shadow-2xl overflow-hidden max-h-[94vh] overflow-y-auto">
                 <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-5 py-4 text-center">
-                    <p class="text-white font-extrabold text-base">Seu desconto está garantido</p>
-                    <p class="text-purple-100 text-xs mt-1">Informar CPF é opcional</p>
+                    <p class="text-white font-extrabold text-base">Ganhe R$ {{ number_format($video_discount_amount ?? 1, 2, ',', '.') }} de desconto</p>
+                    <p class="text-purple-100 text-xs mt-1">Informe seus dados e veja a proposta</p>
                 </div>
 
                 <div class="p-5">
-                    <!-- Desconto por ver o anuncio, NUNCA por entregar dado pessoal.
-                         Condicionar desconto a CPF = consentimento nao livre (LGPD
-                         art. 5, XII) e venda casada (CDC art. 39, I). -->
-                    <div id="discount-free-box" class="mb-4 rounded-xl border-2 border-emerald-300 bg-emerald-50 p-3">
-                        <p class="text-[13px] font-bold text-emerald-900">
-                            O desconto é por ver o anúncio. Você <u>não precisa</u> informar CPF para ganhá-lo.
-                        </p>
-                        <p id="discount-free-timer" class="text-[12px] text-emerald-800 mt-1"></p>
-                        <button type="button" id="discount-free-btn" onclick="claimDiscountWithoutData()" disabled
-                            class="mt-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[14px] py-3 rounded-xl disabled:opacity-50">
-                            Continuar com o desconto, sem informar CPF
-                        </button>
-                    </div>
-
-                    <p class="text-[12px] text-gray-500 mb-3 leading-snug">
-                        Se quiser, informe também seus dados para receber a proposta do parceiro.
-                        Isso é <strong>opcional</strong> e não muda o seu desconto.
+                    {{-- Regra definida pelo dono do negócio: o desconto é de quem informa
+                         telefone e CPF e vê a proposta do parceiro. Quem não quiser
+                         informar segue por "Pular e pagar normal", sem desconto. --}}
+                    <p class="text-[12px] text-gray-600 mb-3 leading-snug">
+                        Informe telefone e CPF para receber a proposta do parceiro.
+                        O desconto é liberado depois que você vê a proposta.
                     </p>
                     <label for="discount-phone" class="block text-xs font-bold text-gray-700 mb-1.5">Telefone</label>
                     <input type="tel" id="discount-phone" maxlength="16" inputmode="numeric"
@@ -795,7 +784,7 @@
                     </button>
                     @if(($discount_open_in ?? '') === 'popup' && ($cashcash_return_seconds ?? 0) > 0)
                         <p class="mt-1.5 text-[11px] text-gray-500 text-center leading-snug">
-                            A proposta abre em outra aba por {{ (int) $cashcash_return_seconds }} segundos. Depois ela fecha sozinha e você volta aqui para pagar.
+                            A proposta abre em outra aba por {{ max((int) $cashcash_return_seconds, (int) ($cashcash_min_seconds ?? 20)) }} segundos. Depois ela fecha sozinha e você volta aqui para pagar com desconto.
                         </p>
                     @endif
 
@@ -845,44 +834,46 @@
     </div>
 
     <!-- Proposta aberta numa ABA à parte (cadastro do parceiro em "Nova aba").
-         Sem contagem: o desconto já foi garantido na tela da oferta. -->
+         O desconto só sai depois que a proposta ficou aberta pelo tempo mínimo;
+         quem confere e grava isso é o servidor. -->
     <div id="discount-opened-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] hidden">
         <div class="flex items-center justify-center h-full p-4">
             <div class="bg-white rounded-2xl w-full max-w-sm animate-slide-up shadow-2xl overflow-hidden">
                 <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-5 py-4 text-center">
                     <p class="text-white font-extrabold text-base">Proposta aberta em outra aba</p>
-                    <p class="text-purple-100 text-xs mt-1">Este portal continua aqui, esperando você</p>
+                    <p class="text-purple-100 text-xs mt-1">Veja a proposta para liberar o desconto</p>
                 </div>
 
                 <div class="p-5">
-                    <div class="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-4 text-center">
-                        <p class="text-[15px] font-extrabold text-emerald-800">
-                            ✓ Seu desconto de R$ {{ number_format($video_discount_amount ?? 1, 2, ',', '.') }} já está garantido
+                    <div class="rounded-xl border-2 border-purple-200 bg-purple-50 p-4 text-center">
+                        <p class="text-[13px] font-bold text-purple-900">
+                            Desconto de R$ {{ number_format($video_discount_amount ?? 1, 2, ',', '.') }}
                         </p>
+                        <p id="discount-opened-timer" class="text-[15px] font-extrabold text-purple-700 mt-1 tabular-nums"></p>
                     </div>
 
-                    @if(($cashcash_return_seconds ?? 0) > 0)
-                        {{-- Contador: ao zerar, o portal fecha a aba da proposta e segue para o PIX. --}}
-                        <p id="discount-opened-timer" class="text-[14px] font-bold text-purple-700 mt-3 text-center tabular-nums"></p>
-                        <p class="text-[13px] text-gray-600 leading-snug mt-1 text-center">
-                            Quando o tempo acabar, a proposta fecha e você volta aqui para pagar. Se preferir, pague agora.
-                        </p>
-                    @else
-                        <p class="text-[13px] text-gray-600 leading-snug mt-3 text-center">
-                            Veja a proposta com calma na outra aba e volte aqui quando quiser pagar.
-                        </p>
-                    @endif
+                    <p id="discount-opened-hint" class="text-[13px] text-gray-600 leading-snug mt-3 text-center">
+                        @if(($cashcash_return_seconds ?? 0) > 0)
+                            Fique na proposta até o fim da contagem. Depois ela fecha sozinha e você volta aqui para pagar com desconto.
+                        @else
+                            Fique na proposta até o fim da contagem e volte aqui para pagar com desconto.
+                        @endif
+                    </p>
 
                     <div id="discount-opened-error" class="hidden mt-3 bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 rounded-lg text-xs"></div>
 
-                    <button onclick="claimDiscountWithoutData()"
-                        class="mt-4 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl shadow-md text-sm transition-all active:scale-[0.98]">
-                        Continuar para o pagamento
+                    <button id="discount-opened-done" type="button" onclick="finishOpenedProposal()" disabled
+                        class="mt-4 w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl shadow-md text-sm transition-all active:scale-[0.98]">
+                        Aguarde para liberar o desconto
                     </button>
 
                     <button id="discount-opened-reopen" onclick="reopenDiscountOffer({ botao: 'discount-opened-reopen', erro: 'discount-opened-error' })"
                         class="mt-2 w-full text-[13px] font-semibold text-purple-700 hover:text-purple-900 py-2 underline">
                         Não abriu? Abrir a proposta de novo
+                    </button>
+
+                    <button onclick="skipDiscountOffer()" class="w-full text-[13px] font-semibold text-gray-500 hover:text-gray-700 py-2 underline">
+                        Pular e pagar normal, sem desconto
                     </button>
                 </div>
             </div>
@@ -977,10 +968,11 @@
         };
 
         /**
-         * Escolheu ver a oferta. A exposição ao anúncio começa AQUI e já vale
-         * o desconto — o CPF é um passo separado e opcional na mesma tela.
+         * Escolheu ver a oferta: abre o formulário de telefone + CPF. O desconto
+         * só existe para quem envia os dados e vê a proposta; aqui nada é
+         * concedido ainda.
          */
-        window.startDiscountOffer = async function() {
+        window.startDiscountOffer = function() {
             hide('discount-choice-modal');
 
             const phoneField = el('discount-phone');
@@ -989,65 +981,6 @@
             }
             el('discount-consent-error')?.classList.add('hidden');
             show('discount-consent-modal');
-
-            // Abre a exposição sem enviar nenhum dado pessoal.
-            try {
-                const response = await fetch('/api/cashcash/exposure', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
-                    },
-                    body: JSON.stringify({
-                        mac_address: window.wifiPortal?.deviceMac || null,
-                        user_id: window.wifiPortal?.currentUserId || null,
-                    }),
-                });
-                const data = await response.json();
-                if (data?.success) {
-                    lead = { lead_id: data.lead_id };
-                    contarExposicao(data.min_seconds || MIN_SECONDS);
-                }
-            } catch (e) {
-                // Sem exposição registrada, o botão sem-CPF libera pelo tempo local.
-                contarExposicao(MIN_SECONDS);
-            }
-        };
-
-        /** Conta o tempo de anúncio e libera o botão que dispensa o CPF. */
-        function contarExposicao(segundos) {
-            const aviso = el('discount-free-timer');
-            const botao = el('discount-free-btn');
-            let restam = segundos;
-
-            const tick = setInterval(function () {
-                restam--;
-                if (restam > 0) {
-                    if (aviso) aviso.textContent = 'Disponível em ' + restam + 's.';
-                    return;
-                }
-                clearInterval(tick);
-                if (aviso) aviso.textContent = 'Pronto! Seu desconto já está liberado.';
-                if (botao) botao.disabled = false;
-            }, 1000);
-
-            if (aviso) aviso.textContent = 'Disponível em ' + restam + 's.';
-        }
-
-        /** Leva o desconto sem entregar CPF nem telefone ao parceiro. */
-        window.claimDiscountWithoutData = async function() {
-            const data = await tryConfirm();
-
-            if (data?.granted) {
-                applyDiscount(Number(data.discount_amount) || DISCOUNT_AMOUNT);
-            } else {
-                // Exposição não registrada no servidor: honra o tempo contado na tela.
-                applyDiscount(DISCOUNT_AMOUNT);
-            }
-
-            decided = true;
-            continueToPayment();
         };
 
         /** Envia CPF + consentimento e abre a proposta numa aba nova. */
@@ -1116,11 +1049,13 @@
                 return fail(data?.message || 'Não conseguimos carregar a proposta agora.');
             }
 
+            // Esta proposta (com CPF) é o registro que vale o desconto: é sobre
+            // ela que o servidor confere o tempo e grava que foi vista.
+            lead = { lead_id: data.lead_id };
+
             // Cadastro do parceiro em "Nova aba": a proposta abre na aba à parte
-            // e o portal fica aqui. O desconto continua sendo o da tela da oferta
-            // (lead da exposição) — informar CPF não muda o desconto.
+            // e o portal fica aqui contando o tempo para liberar o desconto.
             if (data.open_in === 'popup' && janela && abrirNaJanela(janela, data.url)) {
-                propostaLead = { lead_id: data.lead_id };   // só para "abrir de novo"
                 if (button) { button.disabled = false; button.textContent = 'Quero receber a proposta'; }
                 return;
             }
@@ -1145,8 +1080,7 @@
          * então o servidor gera um handoff novo.
          */
         window.reopenDiscountOffer = async function(opcoes) {
-            // No modo "Nova aba" a proposta tem lead próprio; o `lead` é o da exposição.
-            const alvo = propostaLead || lead;
+            const alvo = lead;
             if (!alvo) return;
             // forceRedirect: a página do parceiro não abriu embutida, então vai em tela cheia.
             const forceRedirect = !!(opcoes && opcoes.forceRedirect);
@@ -1201,12 +1135,8 @@
 
         // ---------- Proposta numa ABA à parte (cadastro em "Nova aba") ----------
         // O app da Cash Cash não deixa ser embutido (X-Frame-Options: DENY), mas
-        // abre normalmente numa aba própria. O desconto NÃO depende dessa aba: a
-        // tela da oferta já o garantiu ("informar CPF não muda o seu desconto").
-        // Por isso aqui não há contagem nova — só o aviso de que a proposta abriu
-        // e o caminho para pagar, pela mesma regra do "sem CPF".
-
-        let propostaLead = null;   // lead da proposta (com CPF), para "abrir de novo"
+        // abre normalmente numa aba própria. O desconto depende dessa aba: ela
+        // precisa ficar aberta pelo tempo mínimo, e quem confere é o servidor.
 
         /**
          * A aba tem de nascer no próprio clique: aberta depois de um await, o
@@ -1252,20 +1182,49 @@
             return true;
         }
 
-        // ---------- Contador de volta ao pagamento (modo "Nova aba") ----------
-        // O passageiro está olhando a outra aba e pode não voltar. Como foi o
-        // portal que abriu aquela aba, ele pode fechá-la: quando o tempo acaba,
-        // fecha a proposta (o navegador volta para cá) e segue para o PIX.
+        // ---------- Contador da proposta (modo "Nova aba") ----------
+        // O passageiro está olhando a outra aba. O portal conta o tempo que a
+        // proposta precisa ficar aberta; quando acaba, fecha a aba (foi ele que
+        // abriu, então pode), pede ao servidor a conferência e, com o desconto
+        // gravado, segue para o PIX.
         //
-        // Só segue para o PIX com o portal na frente, para o código não ficar
-        // correndo sem ninguém olhar. Se o navegador pausar esta aba enquanto
-        // ela está atrás, nada se perde: ao voltar, o tempo já venceu e o
-        // portal fecha a proposta e segue — no pior caso, igual a antes.
+        // Fechou a proposta antes do tempo: não ganha — pode abrir de novo (a
+        // contagem recomeça) ou pagar sem desconto.
+        //
+        // Só confere e segue com o portal na frente. Se o navegador pausar esta
+        // aba enquanto ela está atrás, nada se perde: ao voltar, o tempo já
+        // venceu e o portal fecha a proposta e segue.
 
         var propostaJanela = null;
         var voltaTick = null;
         var voltaFim = 0;
         var voltaWorker = null;
+        var voltaCumprida = false;     // a proposta já ficou aberta o tempo todo
+        var voltaTentativas = 0;       // conferências no servidor sem sucesso
+
+        /** Tempo que a proposta fica aberta: nunca menos que o mínimo do desconto. */
+        function esperaDaProposta() {
+            return Math.max(MIN_SECONDS, RETURN_SECONDS);
+        }
+
+        function pintarEspera(restam) {
+            const aviso = el('discount-opened-timer');
+            const botao = el('discount-opened-done');
+            if (restam > 0) {
+                if (aviso) aviso.textContent = 'Liberado em ' + restam + 's';
+                if (botao) { botao.disabled = true; botao.textContent = 'Aguarde ' + restam + 's para liberar o desconto'; }
+                return;
+            }
+            if (aviso) aviso.textContent = 'Conferindo...';
+            if (botao) { botao.disabled = true; botao.textContent = 'Conferindo...'; }
+        }
+
+        function avisoDaProposta(texto) {
+            const box = el('discount-opened-error');
+            if (!box) return;
+            box.textContent = texto;
+            box.classList.remove('hidden');
+        }
 
         function pararVolta() {
             clearInterval(voltaTick);
@@ -1293,9 +1252,13 @@
         function iniciarVolta(janela) {
             pararVolta();
             propostaJanela = janela;
-            if (RETURN_SECONDS <= 0) return;      // desligado: o passageiro volta quando quiser
+            voltaCumprida = false;
+            voltaTentativas = 0;
+            agendarVolta(esperaDaProposta());
+        }
 
-            voltaFim = Date.now() + RETURN_SECONDS * 1000;
+        function agendarVolta(segundos) {
+            voltaFim = Date.now() + segundos * 1000;
             voltaTick = setInterval(conferirVolta, 500);
             ligarRelogioDeFundo();
             conferirVolta();
@@ -1309,21 +1272,71 @@
             let propostaFechada = true;
             try { propostaFechada = !propostaJanela || propostaJanela.closed; } catch (e) {}
 
-            const aviso = el('discount-opened-timer');
-
-            // Ainda no tempo, e o passageiro não fechou a proposta por conta própria.
-            if (restam > 0 && !(propostaFechada && portalNaFrente)) {
-                if (aviso) aviso.textContent = 'Voltando para o pagamento em ' + restam + 's';
+            if (restam > 0) {
+                // Fechou a proposta por conta própria antes do tempo e voltou.
+                if (!voltaCumprida && propostaFechada && portalNaFrente) {
+                    pararVolta();
+                    voltouCedo(restam);
+                    return;
+                }
+                pintarEspera(restam);
                 return;
             }
 
-            descartarJanela(propostaJanela);       // fecha a aba da proposta
-            if (aviso) aviso.textContent = 'Tudo pronto para pagar';
-            if (!portalNaFrente) return;           // segue assim que o portal aparecer
+            voltaCumprida = true;
+            // Fecha a aba da proposta e o navegador volta para o portal (0 = não fecha).
+            if (RETURN_SECONDS > 0) descartarJanela(propostaJanela);
+            pintarEspera(0);
+            if (!portalNaFrente) return;           // confere assim que o portal aparecer
 
             pararVolta();
-            window.claimDiscountWithoutData();     // mesmo caminho do "Continuar para o pagamento"
+            concluirProposta();
         }
+
+        /** Fechou a proposta antes do tempo: sem desconto, mas pode tentar de novo. */
+        function voltouCedo(restam) {
+            const aviso = el('discount-opened-timer');
+            const botao = el('discount-opened-done');
+            if (aviso) aviso.textContent = 'Faltaram ' + restam + 's';
+            if (botao) { botao.disabled = true; botao.textContent = 'Desconto ainda não liberado'; }
+            avisoDaProposta('Você fechou a proposta antes do tempo. Abra de novo e fique até o fim da contagem para ganhar o desconto.');
+        }
+
+        /**
+         * O tempo acabou: o servidor confere quanto tempo a proposta ficou
+         * aberta, grava que foi vista e libera o desconto. Sem a confirmação do
+         * servidor não há desconto.
+         */
+        async function concluirProposta() {
+            const data = await tryConfirm();
+
+            if (data?.granted) {
+                ganhouDesconto(data);              // aplica o desconto e segue para o PIX
+                return;
+            }
+
+            voltaTentativas++;
+            if (voltaTentativas >= 5) {
+                const botao = el('discount-opened-done');
+                const aviso = el('discount-opened-timer');
+                if (aviso) aviso.textContent = 'Não confirmado';
+                if (botao) { botao.disabled = false; botao.textContent = 'Tentar de novo'; }
+                avisoDaProposta('Não conseguimos confirmar o desconto agora. Tente de novo, abra a proposta outra vez ou pague sem desconto.');
+                return;
+            }
+
+            // Sem resposta, ou o servidor ainda não contou o tempo todo: espera e repete.
+            agendarVolta(Math.max(2, Number(data?.remaining_seconds) || 3));
+        }
+
+        /** Botão da tela "Proposta aberta": confere agora (só fica ativo após falha). */
+        window.finishOpenedProposal = function () {
+            if (voltaTick) return;                 // a contagem ainda está rodando
+            voltaTentativas = 0;
+            el('discount-opened-error')?.classList.add('hidden');
+            voltaCumprida = true;
+            agendarVolta(0);
+        };
 
         document.addEventListener('visibilitychange', conferirVolta);
 
@@ -1740,14 +1753,11 @@
                         <input type="tel" id="user_phone" name="phone" required placeholder="(63) 9 8101-3050" maxlength="16" autofocus
                             class="w-full border border-gray-300 rounded-xl px-4 py-3.5 focus:outline-none focus:border-green focus:ring-2 focus:ring-green/20 transition-all text-base text-center font-medium">
                     </div>
-                    <!-- Autorização do WhatsApp: vem marcada; o passageiro pode desmarcar ou responder PARAR -->
-                    <label class="flex items-start gap-3 rounded-xl bg-emerald-50 border-2 border-emerald-200 p-3 cursor-pointer has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-100/60 transition-colors">
-                        <input type="checkbox" id="whatsapp-payment-opt-in" name="whatsapp_payment_opt_in" value="1" checked class="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
-                        <span class="leading-snug">
-                            <span class="block text-[12px] font-bold text-emerald-900">📲 Receber comprovante no WhatsApp</span>
-                            <span class="block text-[11px] text-emerald-800 mt-0.5">Confirmação e 1 lembrete se não concluir. Responda <strong>PARAR</strong> para sair.</span>
-                        </span>
-                    </label>
+                    {{-- Comprovante e lembrete pelo WhatsApp: sempre ligado, sem caixa na
+                         tela (decisão do dono do negócio). Toda mensagem enviada explica
+                         como sair respondendo PARAR. O campo continua existindo, marcado,
+                         porque o restante do portal lê este id. --}}
+                    <input type="checkbox" id="whatsapp-payment-opt-in" name="whatsapp_payment_opt_in" value="1" checked hidden>
                     <button type="submit" id="registration-submit-btn" class="connect-button w-full text-white font-bold py-3.5 rounded-xl shadow-md text-sm">
                         GERAR QR CODE PIX
                     </button>
@@ -1769,13 +1779,8 @@
                     <p id="selected-plan-price" class="text-3xl font-extrabold text-emerald-700">R$7,99</p>
                     <p id="selected-plan-name" class="text-sm text-emerald-600 mt-1">Viagem completa / {{ $session_duration ?? 12 }} horas de acesso</p>
                 </div>
-                <label class="flex items-start gap-3 rounded-xl bg-emerald-50 border-2 border-emerald-200 p-3 mb-4 cursor-pointer has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-100/60 transition-colors">
-                    <input type="checkbox" id="whatsapp-payment-opt-in-payment" value="1" checked class="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
-                    <span class="leading-snug">
-                        <span class="block text-[12px] font-bold text-emerald-900">📲 Receber comprovante no WhatsApp</span>
-                        <span class="block text-[11px] text-emerald-800 mt-0.5">Confirmação e 1 lembrete se não concluir. Responda <strong>PARAR</strong> para sair.</span>
-                    </span>
-                </label>
+                {{-- Mesmo caso do cadastro: WhatsApp sempre ligado, sem caixa visível. --}}
+                <input type="checkbox" id="whatsapp-payment-opt-in-payment" value="1" checked hidden>
                 <button data-payment="pix" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition-colors shadow-md text-sm">
                     PAGAR AGORA
                 </button>

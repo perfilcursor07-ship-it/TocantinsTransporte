@@ -141,59 +141,6 @@ class CashCashController extends Controller
     }
 
     /**
-     * Inicia a exposição ao anúncio SEM nenhum dado pessoal.
-     *
-     * Esta é a rota que torna o desconto independente do CPF. O passageiro
-     * ganha o desconto por ver o anúncio pelo tempo mínimo — informar CPF é
-     * um passo separado e opcional, que não altera o preço.
-     *
-     * Condicionar desconto à entrega de CPF caracteriza consentimento não
-     * livre (LGPD art. 5º, XII) e venda casada (CDC art. 39, I). Por isso
-     * este caminho precisa existir sempre, para qualquer patrocinador.
-     */
-    public function exposure(Request $request)
-    {
-        $validated = $request->validate([
-            'phone' => 'nullable|string|max:20',
-            'mac_address' => 'nullable|string|max:32',
-            'user_id' => 'nullable|integer',
-        ]);
-
-        $mac = strtoupper(trim((string) ($validated['mac_address'] ?? ''))) ?: null;
-
-        // Já tem exposição em aberto para este aparelho? Reaproveita o registro,
-        // mas o tempo recomeça AGORA: a tela do anúncio acabou de abrir e o
-        // contador dela também começa do zero. Se o relógio antigo continuasse
-        // valendo, bastaria abrir a oferta, recarregar a página e esperar em
-        // outro lugar para ganhar o desconto sem ver o anúncio.
-        $lead = $mac ? DiscountLead::pendingExposureFor($mac) : null;
-
-        if ($lead) {
-            $lead->update([
-                'link_opened_at' => now(),
-                'returned_at' => null,
-                'dwell_seconds' => null,
-            ]);
-        } else {
-            $lead = DiscountLead::create([
-                'user_id' => $validated['user_id'] ?? null,
-                'phone' => $validated['phone'] ?? null,
-                'mac_address' => $mac,
-                'cpf' => null,                 // nenhum dado pessoal nesta via
-                'status' => DiscountLead::STATUS_CREATED,
-                'link_opened_at' => now(),
-            ]);
-        }
-
-        return response()->json([
-            'success' => true,
-            'lead_id' => $lead->id,
-            'min_seconds' => SettingsHelper::getCashCashMinSeconds(),
-            'discount_amount' => SettingsHelper::getVideoDiscountAmount(),
-        ]);
-    }
-
-    /**
      * Passageiro voltou do app. Concede o desconto se ficou o tempo mínimo.
      */
     public function confirm(Request $request)
@@ -210,6 +157,18 @@ class CashCashController extends Controller
                 'reason' => 'not_found',
                 'message' => 'Não encontramos sua proposta. Tente de novo.',
             ], 404);
+        }
+
+        // O desconto é de quem informou telefone e CPF e abriu a proposta do
+        // parceiro. Registro sem CPF ou sem handoff (o antigo "ver o anúncio")
+        // nunca libera desconto.
+        if (! $lead->isProposal()) {
+            return response()->json([
+                'success' => true,
+                'granted' => false,
+                'reason' => 'requires_proposal',
+                'message' => 'Informe telefone e CPF e veja a proposta para ganhar o desconto.',
+            ]);
         }
 
         if ($lead->discount_granted_at) {
@@ -251,9 +210,14 @@ class CashCashController extends Controller
             'discount_amount' => $amount,
         ]);
 
-        Log::info('🏦 Cash Cash: desconto concedido', [
+        // Fica gravado no lead: quando a proposta abriu (link_opened_at), quando
+        // o passageiro voltou (returned_at), quanto tempo ficou (dwell_seconds)
+        // e quando/quanto de desconto saiu (discount_granted_at, discount_amount).
+        Log::info('🏦 Cash Cash: proposta vista, desconto concedido', [
+            'lead_id' => $lead->id,
             'handoff_id' => $lead->handoff_id,
             'dwell_seconds' => $dwell,
+            'discount_amount' => $amount,
         ]);
 
         return response()->json([
