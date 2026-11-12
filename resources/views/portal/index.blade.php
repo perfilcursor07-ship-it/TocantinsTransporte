@@ -793,6 +793,11 @@
                         class="mt-4 w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold py-3.5 rounded-xl shadow-md text-sm transition-all active:scale-[0.98] disabled:opacity-60">
                         Quero receber a proposta
                     </button>
+                    @if(($discount_open_in ?? '') === 'popup' && ($cashcash_return_seconds ?? 0) > 0)
+                        <p class="mt-1.5 text-[11px] text-gray-500 text-center leading-snug">
+                            A proposta abre em outra aba por {{ (int) $cashcash_return_seconds }} segundos. Depois ela fecha sozinha e você volta aqui para pagar.
+                        </p>
+                    @endif
 
                     <button onclick="skipDiscountOffer()" class="mt-2 w-full text-[13px] font-semibold text-gray-500 hover:text-gray-700 py-2 underline">
                         Pular e pagar normal
@@ -856,9 +861,17 @@
                         </p>
                     </div>
 
-                    <p class="text-[13px] text-gray-600 leading-snug mt-3 text-center">
-                        Veja a proposta com calma na outra aba e volte aqui quando quiser pagar.
-                    </p>
+                    @if(($cashcash_return_seconds ?? 0) > 0)
+                        {{-- Contador: ao zerar, o portal fecha a aba da proposta e segue para o PIX. --}}
+                        <p id="discount-opened-timer" class="text-[14px] font-bold text-purple-700 mt-3 text-center tabular-nums"></p>
+                        <p class="text-[13px] text-gray-600 leading-snug mt-1 text-center">
+                            Quando o tempo acabar, a proposta fecha e você volta aqui para pagar. Se preferir, pague agora.
+                        </p>
+                    @else
+                        <p class="text-[13px] text-gray-600 leading-snug mt-3 text-center">
+                            Veja a proposta com calma na outra aba e volte aqui quando quiser pagar.
+                        </p>
+                    @endif
 
                     <div id="discount-opened-error" class="hidden mt-3 bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 rounded-lg text-xs"></div>
 
@@ -910,6 +923,8 @@
         const DISCOUNT_AMOUNT = {{ $video_discount_amount ?? 1 }};
         const MIN_SECONDS = {{ $cashcash_min_seconds ?? 20 }};
         const OPEN_IN = @json($discount_open_in ?? 'redirect');
+        // Modo "Nova aba": segundos até o portal fechar a proposta e voltar ao PIX (0 = não fecha).
+        const RETURN_SECONDS = {{ (int) ($cashcash_return_seconds ?? 0) }};
 
         let decided = false;              // já pulou ou já ganhou o desconto
         let pendingConnectAction = null;  // callback original do fluxo de pagamento
@@ -929,6 +944,7 @@
 
         /** Segue o fluxo de pagamento original, intocado. */
         function continueToPayment() {
+            pararVolta();
             hideAll();
             if (pendingConnectAction) {
                 const go = pendingConnectAction;
@@ -1227,8 +1243,64 @@
             hideAll();
             el('discount-opened-error')?.classList.add('hidden');
             show('discount-opened-modal');
+            iniciarVolta(janela);
             return true;
         }
+
+        // ---------- Contador de volta ao pagamento (modo "Nova aba") ----------
+        // O passageiro está olhando a outra aba e pode não voltar. Como foi o
+        // portal que abriu aquela aba, ele pode fechá-la: quando o tempo acaba,
+        // fecha a proposta (o navegador volta para cá) e segue para o PIX.
+        //
+        // Só segue para o PIX com o portal na frente, para o código não ficar
+        // correndo sem ninguém olhar. Se o navegador pausar esta aba enquanto
+        // ela está atrás, nada se perde: ao voltar, o tempo já venceu e o
+        // portal fecha a proposta e segue — no pior caso, igual a antes.
+
+        var propostaJanela = null;
+        var voltaTick = null;
+        var voltaFim = 0;
+
+        function pararVolta() {
+            clearInterval(voltaTick);
+            voltaTick = null;
+        }
+
+        function iniciarVolta(janela) {
+            pararVolta();
+            propostaJanela = janela;
+            if (RETURN_SECONDS <= 0) return;      // desligado: o passageiro volta quando quiser
+
+            voltaFim = Date.now() + RETURN_SECONDS * 1000;
+            voltaTick = setInterval(conferirVolta, 500);
+            conferirVolta();
+        }
+
+        function conferirVolta() {
+            if (!voltaTick) return;
+
+            const restam = Math.ceil((voltaFim - Date.now()) / 1000);
+            const portalNaFrente = document.visibilityState !== 'hidden';
+            let propostaFechada = true;
+            try { propostaFechada = !propostaJanela || propostaJanela.closed; } catch (e) {}
+
+            const aviso = el('discount-opened-timer');
+
+            // Ainda no tempo, e o passageiro não fechou a proposta por conta própria.
+            if (restam > 0 && !(propostaFechada && portalNaFrente)) {
+                if (aviso) aviso.textContent = 'Voltando para o pagamento em ' + restam + 's';
+                return;
+            }
+
+            descartarJanela(propostaJanela);       // fecha a aba da proposta
+            if (aviso) aviso.textContent = 'Tudo pronto para pagar';
+            if (!portalNaFrente) return;           // segue assim que o portal aparecer
+
+            pararVolta();
+            window.claimDiscountWithoutData();     // mesmo caminho do "Continuar para o pagamento"
+        }
+
+        document.addEventListener('visibilitychange', conferirVolta);
 
         // ---------- Proposta aberta DENTRO do portal (cadastro em "Modal") ----------
         // Quem decide se o desconto sai continua sendo o servidor, no tryConfirm():
@@ -1830,8 +1902,42 @@
                     };
                 }
 
+                // Ligado quando o telefone foi cadastrado na tela da proposta
+                // (telefone + CPF). Aí o "Acesso rápido" não tem mais o que pedir.
+                var telefoneCadastradoNaOferta = false;
+
+                /**
+                 * Cadastro de telefone ("Acesso rápido"), exceto para quem já
+                 * informou o telefone na proposta: esse vai direto ao PIX, como
+                 * acontece depois de enviar o formulário de telefone.
+                 * Qualquer problema cai no cadastro de sempre.
+                 */
+                function cadastroOuPix() {
+                    try {
+                        if (telefoneCadastradoNaOferta && portal.currentUserId) {
+                            portal.showLoading();
+                            return originalProcessPixFast();
+                        }
+                    } catch (e) {
+                        // segue para o cadastro normal
+                    }
+
+                    originalShowRegistration();
+
+                    // Digitou o telefone na proposta mas não enviou: já deixa preenchido.
+                    try {
+                        var digitado = document.getElementById('discount-phone')?.value || '';
+                        var campo = document.getElementById('user_phone');
+                        if (campo && !campo.value && digitado.replace(/\D/g, '').length >= 10) {
+                            campo.value = digitado;
+                        }
+                    } catch (e) {
+                        // campo vazio, como antes
+                    }
+                }
+
                 // Usuário novo: a oferta aparece no lugar do cadastro de telefone.
-                portal.showRegistrationModal = comOferta(originalShowRegistration);
+                portal.showRegistrationModal = comOferta(cadastroOuPix);
 
                 // Usuário já cadastrado: a oferta aparece antes de gerar o PIX.
                 portal.processPixPayment = comOferta(originalProcessPix);
@@ -1868,6 +1974,9 @@
                     var result = await resp.json();
                     if (!result.success) throw new Error(result.message || 'registro');
                     portal.currentUserId = result.user_id;
+                    // Com acesso ainda ativo, quem resolve é o cadastro de sempre
+                    // (reconecta sem cobrar); por isso só pula quando vai pagar.
+                    telefoneCadastradoNaOferta = !result.already_active;
                     return result.user_id;
                 };
             }

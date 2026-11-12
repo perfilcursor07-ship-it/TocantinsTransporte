@@ -124,6 +124,8 @@ class PortalController extends Controller
                 && app(\App\Services\CashCashService::class)->isEnabled(),
             'video_discount_amount' => \App\Helpers\SettingsHelper::getVideoDiscountAmount(),
             'cashcash_min_seconds' => \App\Helpers\SettingsHelper::getCashCashMinSeconds(),
+            // Modo "Nova aba": tempo até o portal fechar a proposta e voltar ao pagamento.
+            'cashcash_return_seconds' => \App\Helpers\SettingsHelper::getCashCashReturnSeconds(),
             // Como a proposta abre (cadastro em /admin/parceiros). O portal precisa
             // saber ANTES do clique: janela nova só é permitida no próprio clique.
             'discount_open_in' => app(\App\Services\CashCashService::class)->openIn(),

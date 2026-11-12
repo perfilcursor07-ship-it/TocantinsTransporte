@@ -185,6 +185,20 @@ class SettingsHelper
     }
 
     /**
+     * Quantos segundos a proposta do parceiro fica aberta na outra aba antes
+     * de o portal fechá-la e levar o passageiro ao pagamento. 0 desliga: a aba
+     * fica aberta até o passageiro voltar sozinho.
+     */
+    public static function getCashCashReturnSeconds(): int
+    {
+        $value = (int) Cache::remember('cashcash_return_seconds', 3600, function () {
+            return SystemSetting::getValue('cashcash_return_seconds', '30');
+        });
+
+        return max(0, min(300, $value));
+    }
+
+    /**
      * Verificar se o agendamento automático do plano por hora está habilitado
      */
     public static function isPlanShortScheduleEnabled(): bool
@@ -270,5 +284,6 @@ class SettingsHelper
         Cache::forget('video_discount_enabled');
         Cache::forget('video_discount_amount');
         Cache::forget('cashcash_min_seconds');
+        Cache::forget('cashcash_return_seconds');
     }
 }

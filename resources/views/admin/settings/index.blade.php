@@ -314,6 +314,22 @@
                             @enderror
                         </div>
                         <div>
+                            <label for="cashcash_return_seconds" class="block text-sm font-bold text-gray-700 mb-2">
+                                ↩️ Voltar ao pagamento após
+                            </label>
+                            <div class="relative">
+                                <input
+                                    type="number" name="cashcash_return_seconds" id="cashcash_return_seconds" min="0" max="300"
+                                    value="{{ old('cashcash_return_seconds', $settings['cashcash_return_seconds'] ?? 30) }}"
+                                    class="w-full pl-4 pr-14 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-lg font-bold">
+                                <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-bold text-sm">seg</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-2">Só no modo "Nova aba": passado esse tempo, o portal fecha a aba da proposta e leva o passageiro ao PIX. Use 0 para não fechar.</p>
+                            @error('cashcash_return_seconds')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">
                                 📊 Exemplo de desconto
                             </label>

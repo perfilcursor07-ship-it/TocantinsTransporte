@@ -34,6 +34,7 @@ class SettingsController extends Controller
             'video_discount_enabled' => SystemSetting::getValue('video_discount_enabled', '0'),
             'video_discount_amount' => SystemSetting::getValue('video_discount_amount', '1.00'),
             'cashcash_min_seconds' => SystemSetting::getValue('cashcash_min_seconds', '20'),
+            'cashcash_return_seconds' => SystemSetting::getValue('cashcash_return_seconds', '30'),
             'plan_short_currently_active' => \App\Helpers\SettingsHelper::isPlanShortCurrentlyActive(),
             'unpaid_reminder_enabled' => SystemSetting::getValue('unpaid_reminder_enabled', '1'),
             'promo_timer_enabled' => SystemSetting::getValue('promo_timer_enabled', '0'),
@@ -67,6 +68,7 @@ class SettingsController extends Controller
             'video_discount_enabled' => 'nullable|in:0,1',
             'video_discount_amount' => 'required|numeric|min:0.01|max:99.99',
             'cashcash_min_seconds' => 'nullable|integer|min:1|max:300',
+            'cashcash_return_seconds' => 'nullable|integer|min:0|max:300',
             'unpaid_reminder_enabled' => 'nullable|in:0,1',
             // Estes três ainda não existem no formulário — se forem obrigatórios,
             // toda gravação da tela falha calada e nada é salvo.
@@ -96,6 +98,11 @@ class SettingsController extends Controller
 
         if ($request->filled('cashcash_min_seconds')) {
             SystemSetting::setValue('cashcash_min_seconds', $request->cashcash_min_seconds);
+        }
+
+        // 0 é um valor válido (desliga o retorno automático), por isso não usa filled().
+        if ($request->input('cashcash_return_seconds') !== null && $request->input('cashcash_return_seconds') !== '') {
+            SystemSetting::setValue('cashcash_return_seconds', (int) $request->cashcash_return_seconds);
         }
 
         // Só grava o cronômetro de promoção se o formulário realmente mandar o campo.
