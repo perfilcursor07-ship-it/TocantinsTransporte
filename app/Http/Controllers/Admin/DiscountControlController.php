@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Admin > Sistema > Descontos.
@@ -97,6 +98,38 @@ class DiscountControlController extends Controller
         SettingsHelper::clearCache();
 
         return redirect()->route('admin.discounts.index')->with('success', 'Regras do desconto atualizadas.');
+    }
+
+    /** Exclui uma proposta da lista. */
+    public function destroy(DiscountLead $lead)
+    {
+        $this->somenteAdmin();
+
+        $id = $lead->id;
+        $lead->delete();
+
+        // Sem CPF nem telefone no log: só quem excluiu e qual registro.
+        Log::info('🗑️ Proposta de desconto excluída pelo admin', ['lead_id' => $id, 'admin_id' => auth()->id()]);
+
+        return back()->with('success', "Proposta #{$id} excluída.");
+    }
+
+    /** Exclui as propostas marcadas na lista. */
+    public function destroyMany(Request $request)
+    {
+        $this->somenteAdmin();
+
+        $validated = $request->validate([
+            'lead_ids' => ['required', 'array', 'min:1', 'max:500'],
+            'lead_ids.*' => ['integer'],
+        ], ['lead_ids.required' => 'Marque pelo menos uma proposta para excluir.']);
+
+        $ids = array_values(array_unique(array_map('intval', $validated['lead_ids'])));
+        $excluidas = DiscountLead::whereIn('id', $ids)->delete();
+
+        Log::info('🗑️ Propostas de desconto excluídas pelo admin', ['lead_ids' => $ids, 'admin_id' => auth()->id()]);
+
+        return back()->with('success', "{$excluidas} proposta(s) excluída(s).");
     }
 
     /**

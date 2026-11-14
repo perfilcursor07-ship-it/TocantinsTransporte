@@ -323,6 +323,47 @@ class DiscountProposalTest extends TestCase
         $this->assertNull(\App\Services\CashCashService::originOf('nao-e-um-link'));
     }
 
+    public function test_admin_can_delete_proposals_one_by_one_or_in_bulk(): void
+    {
+        $this->be(\App\Models\User::create(['name' => 'Admin', 'role' => 'admin', 'mac_address' => 'AA:AA:AA:AA:AA:01']));
+        $controller = app(\App\Http\Controllers\Admin\DiscountControlController::class);
+
+        $ativo = $this->granted();
+        $outras = collect(range(2, 4))->map(fn ($n) => $this->proposal(['mac_address' => "AA:AA:AA:AA:AA:0{$n}", 'cpf' => str_repeat((string) $n, 11)]));
+        $this->assertNotNull(DiscountLead::activeDiscountFor(self::MAC));
+
+        // Uma só: o desconto ativo dela deixa de valer.
+        $controller->destroy($ativo);
+        $this->assertNull(DiscountLead::find($ativo->id));
+        $this->assertNull(DiscountLead::activeDiscountFor(self::MAC));
+        $this->assertFalse(DiscountLead::earnedRecently(30, self::MAC), 'O histórico do passageiro também sai.');
+
+        // Em lote: só as marcadas.
+        $controller->destroyMany(Request::create('/admin/descontos', 'DELETE', ['lead_ids' => [$outras[0]->id, $outras[1]->id]]));
+        $this->assertSame([$outras[2]->id], DiscountLead::pluck('id')->all());
+    }
+
+    public function test_deleting_proposals_is_only_for_admins(): void
+    {
+        $lead = $this->proposal();
+        $this->be(\App\Models\User::create(['name' => 'Operador', 'role' => 'user', 'mac_address' => 'AA:AA:AA:AA:AA:09']));
+        $controller = app(\App\Http\Controllers\Admin\DiscountControlController::class);
+
+        foreach ([
+            fn () => $controller->destroy($lead),
+            fn () => $controller->destroyMany(Request::create('/admin/descontos', 'DELETE', ['lead_ids' => [$lead->id]])),
+        ] as $tentativa) {
+            try {
+                $tentativa();
+                $this->fail('Quem não é admin não pode excluir.');
+            } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+                $this->assertSame(403, $e->getStatusCode());
+            }
+        }
+
+        $this->assertNotNull(DiscountLead::find($lead->id));
+    }
+
     public function test_admin_screen_is_only_for_admins(): void
     {
         $this->be(\App\Models\User::create(['name' => 'Operador', 'role' => 'user', 'mac_address' => 'AA:AA:AA:AA:AA:09']));

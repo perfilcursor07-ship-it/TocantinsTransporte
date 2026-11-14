@@ -194,10 +194,26 @@
             </div>
 
             @if($leads->count())
+            {{-- Formulário da exclusão em lote. Fica fora da tabela (as caixas se ligam a
+                 ele pelo atributo form) para não aninhar com o "Excluir" de cada linha. --}}
+            <form id="bulk-delete" method="POST" action="{{ route('admin.discounts.bulk-destroy') }}"
+                  onsubmit="return confirmarExclusaoEmLote();" class="px-4 py-2 border-b border-gray-100 flex items-center gap-3 bg-gray-50">
+                @csrf
+                @method('DELETE')
+                <label class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                    <input type="checkbox" id="marcar-todas" class="h-4 w-4 rounded border-gray-300">
+                    Marcar todas desta página
+                </label>
+                <button type="submit" id="excluir-marcadas" disabled
+                    class="ml-auto bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 py-1.5 px-3 rounded-lg font-bold text-xs disabled:opacity-40 disabled:cursor-not-allowed">
+                    Excluir marcadas
+                </button>
+            </form>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead class="bg-gray-50 text-left text-xs text-gray-600">
                         <tr>
+                            <th class="pl-4 py-3 w-8"></th>
                             <th class="px-4 py-3 font-semibold">Passageiro</th>
                             <th class="px-4 py-3 font-semibold">Proposta aberta</th>
                             <th class="px-4 py-3 font-semibold">Tempo na proposta</th>
@@ -205,11 +221,16 @@
                             <th class="px-4 py-3 font-semibold">Vale até</th>
                             <th class="px-4 py-3 font-semibold">Situação</th>
                             <th class="px-4 py-3 font-semibold">Pagamento</th>
+                            <th class="px-4 py-3"></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @foreach($leads as $lead)
                         <tr class="hover:bg-gray-50">
+                            <td class="pl-4 py-3">
+                                <input type="checkbox" name="lead_ids[]" value="{{ $lead->id }}" form="bulk-delete"
+                                    class="marcar-proposta h-4 w-4 rounded border-gray-300" aria-label="Marcar proposta {{ $lead->id }}">
+                            </td>
                             <td class="px-4 py-3">
                                 <div class="font-medium text-gray-800">{{ $mascaraFone($lead->phone) }}</div>
                                 <div class="text-xs text-gray-500">CPF {{ $mascaraCpf($lead->cpf) }}</div>
@@ -243,6 +264,14 @@
                                     <span class="text-gray-400">—</span>
                                 @endif
                             </td>
+                            <td class="px-4 py-3 text-right">
+                                <form method="POST" action="{{ route('admin.discounts.destroy', $lead) }}"
+                                      onsubmit="return confirm('Excluir a proposta #{{ $lead->id }} ({{ $mascaraFone($lead->phone) }})?\n\n{{ $lead->situacao === 'ativo' ? 'O desconto dela ainda está ativo e será cancelado. ' : '' }}Isso apaga também o registro da autorização do CPF e não pode ser desfeito.');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="bg-red-50 hover:bg-red-100 text-red-700 px-3 py-1 rounded-lg text-xs font-bold">Excluir</button>
+                                </form>
+                            </td>
                         </tr>
                         @endforeach
                     </tbody>
@@ -257,7 +286,43 @@
         <p class="text-xs text-gray-400">
             "Usado" é o primeiro pagamento concluído do passageiro depois de o desconto ser liberado, dentro do prazo.
             O prazo mostrado em "Vale até" usa a validade configurada hoje.
+            Excluir uma proposta apaga o registro de vez: o desconto dela deixa de valer, o passageiro volta a poder
+            ganhar desconto mesmo dentro do intervalo, e some o comprovante de que ele autorizou o envio do CPF.
         </p>
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(function () {
+    const todas = document.getElementById('marcar-todas');
+    const botao = document.getElementById('excluir-marcadas');
+    const caixas = function () { return Array.from(document.querySelectorAll('.marcar-proposta')); };
+    const marcadas = function () { return caixas().filter(function (c) { return c.checked; }); };
+
+    function atualizar() {
+        const total = marcadas().length;
+        if (botao) {
+            botao.disabled = total === 0;
+            botao.textContent = total ? 'Excluir marcadas (' + total + ')' : 'Excluir marcadas';
+        }
+        if (todas) todas.checked = total > 0 && total === caixas().length;
+    }
+
+    if (todas) todas.addEventListener('change', function () {
+        caixas().forEach(function (c) { c.checked = todas.checked; });
+        atualizar();
+    });
+    caixas().forEach(function (c) { c.addEventListener('change', atualizar); });
+
+    window.confirmarExclusaoEmLote = function () {
+        const total = marcadas().length;
+        if (!total) return false;
+        return confirm('Excluir ' + total + ' proposta(s) marcada(s)?\n\nIsso cancela descontos ainda ativos, apaga o registro da autorização do CPF e não pode ser desfeito.');
+    };
+
+    atualizar();
+})();
+</script>
+@endpush

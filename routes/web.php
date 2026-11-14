@@ -286,6 +286,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin.access'])->gr
         // Controle dos descontos da proposta (validade, uso e histórico)
         Route::get('/descontos', [\App\Http\Controllers\Admin\DiscountControlController::class, 'index'])->name('discounts.index');
         Route::put('/descontos', [\App\Http\Controllers\Admin\DiscountControlController::class, 'update'])->name('discounts.update');
+        Route::delete('/descontos', [\App\Http\Controllers\Admin\DiscountControlController::class, 'destroyMany'])->name('discounts.bulk-destroy');
+        Route::delete('/descontos/{lead}', [\App\Http\Controllers\Admin\DiscountControlController::class, 'destroy'])->name('discounts.destroy')->where('lead', '[0-9]+');
 
         // Parceiros do espaço de desconto (vídeo / iframe / API)
         Route::prefix('parceiros')->name('sponsors.')->group(function () {
