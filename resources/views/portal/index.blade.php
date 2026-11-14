@@ -951,6 +951,8 @@
         const OPEN_IN = @json($discount_open_in ?? 'redirect');
         // Modo "Nova aba": segundos até o portal fechar a proposta e voltar ao PIX (0 = não fecha).
         const RETURN_SECONDS = {{ (int) ($cashcash_return_seconds ?? 0) }};
+        // Endereço da página do parceiro (só esquema + host), para o teste de alcance.
+        const PARTNER_ORIGIN = @json($discount_partner_origin ?? null);
 
         let decided = false;              // já pulou ou já ganhou o desconto
         let pendingConnectAction = null;  // callback original do fluxo de pagamento
@@ -987,16 +989,117 @@
          */
         window.DISCOUNT_OFFER_INTERCEPT = function(originalCallback) {
             if (decided) { originalCallback(); return; }
-            pendingConnectAction = originalCallback;
 
-            el('loading-overlay')?.classList.add('hidden');
+            function mostrarOuPular(abre) {
+                if (decided) { originalCallback(); return; }
 
-            const price = window.WIFI_PRICE || 7.99;
-            const normalEl = el('discount-choice-normal-price');
-            if (normalEl) normalEl.textContent = 'Pagar R$' + price.toFixed(2).replace('.', ',');
+                // A página do parceiro não abre deste ônibus (falta a liberação no
+                // roteador): oferecer levaria a uma tela travada, então o
+                // passageiro segue direto para o pagamento normal.
+                if (abre === false) {
+                    el('loading-overlay')?.classList.add('hidden');
+                    originalCallback();
+                    return;
+                }
 
-            show('discount-choice-modal');
+                pendingConnectAction = originalCallback;
+
+                el('loading-overlay')?.classList.add('hidden');
+
+                const price = window.WIFI_PRICE || 7.99;
+                const normalEl = el('discount-choice-normal-price');
+                if (normalEl) normalEl.textContent = 'Pagar R$' + price.toFixed(2).replace('.', ',');
+
+                show('discount-choice-modal');
+            }
+
+            // O teste roda quando a página abre, então quase sempre já terminou.
+            if (sondaTerminou) { mostrarOuPular(sondaResultado); return; }
+
+            // Ainda testando: espera no máximo 3s; sem resposta, mostra a oferta como sempre.
+            el('loading-overlay')?.classList.remove('hidden');
+            Promise.race([
+                sondaParceiro,
+                new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 3000); }),
+            ]).then(mostrarOuPular);
         };
+
+        // ---------- A página do parceiro abre daqui? ----------
+        // No ônibus, quem ainda não pagou só alcança os endereços liberados no
+        // MikroTik (walled garden). Se o do parceiro não estiver liberado, a
+        // proposta nunca carrega. O portal testa isso do próprio aparelho, logo
+        // ao abrir, e avisa o servidor — o admin mostra o resultado por ônibus.
+        //
+        // true = abre | false = não abre | null = não deu para testar (segue como antes)
+
+        var sondaTerminou = false;
+        var sondaResultado = null;
+        var sondaParceiro = sondarParceiro().then(function (abre) {
+            sondaTerminou = true;
+            sondaResultado = abre;
+            avisarAlcance(abre);
+            return abre;
+        });
+
+        function tentarAlcancar(prazoMs) {
+            let controle = null;
+            let prazo = null;
+            try {
+                controle = new AbortController();
+                prazo = setTimeout(function () { controle.abort(); }, prazoMs);
+            } catch (e) { controle = null; }
+
+            // no-cors: não lemos a resposta, só interessa se a conexão acontece.
+            return fetch(PARTNER_ORIGIN + '/favicon.ico?sonda=' + Date.now(), {
+                mode: 'no-cors', cache: 'no-store', credentials: 'omit',
+                signal: controle ? controle.signal : undefined,
+            }).then(function () { clearTimeout(prazo); return true; },
+                    function () { clearTimeout(prazo); return false; });
+        }
+
+        function sondarParceiro() {
+            if (!PARTNER_ORIGIN || typeof fetch !== 'function') return Promise.resolve(null);
+
+            // Uma segunda tentativa evita esconder a oferta por uma oscilação da internet.
+            return tentarAlcancar(6000)
+                .then(function (abre) { return abre ? true : tentarAlcancar(6000); })
+                .catch(function () { return null; });
+        }
+
+        /** Avisa o servidor (no máximo 1 vez a cada 30 min por aparelho e resultado). */
+        function avisarAlcance(abre) {
+            if (abre !== true && abre !== false) return;
+            try {
+                const chave = 'cc_alcance_' + (abre ? 'ok' : 'falha');
+                const ultimo = Number(localStorage.getItem(chave) || 0);
+                if (Date.now() - ultimo < 30 * 60 * 1000) return;
+                localStorage.setItem(chave, String(Date.now()));
+            } catch (e) { /* sem armazenamento: avisa mesmo assim */ }
+
+            try {
+                fetch('/api/cashcash/reachability', {
+                    method: 'POST',
+                    keepalive: true,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    },
+                    body: JSON.stringify({ reachable: abre }),
+                }).catch(function () {});
+            } catch (e) {}
+        }
+
+        /**
+         * Tela de login do WiFi e navegadores embutidos em apps não têm abas.
+         * Neles nem se tenta abrir outra aba: a proposta vai pela mesma janela.
+         */
+        function navegadorSemAbas() {
+            const ua = navigator.userAgent || '';
+            if (/; wv\)/.test(ua)) return true;                                    // WebView do Android
+            if (/iPhone|iPad|iPod/.test(ua) && !/Safari\//.test(ua)) return true;  // tela de login do iPhone
+            return false;
+        }
 
         /** Pulou: preço normal, fluxo normal. */
         window.skipDiscountOffer = function() {
@@ -1258,7 +1361,7 @@
          * pela mesma aba, como sempre foi.
          */
         function prepararJanela() {
-            if (OPEN_IN !== 'popup') return null;
+            if (OPEN_IN !== 'popup' || navegadorSemAbas()) return null;
 
             let janela = null;
             try { janela = window.open('', 'proposta_parceiro'); } catch (e) { janela = null; }

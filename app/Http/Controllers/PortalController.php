@@ -139,6 +139,9 @@ class PortalController extends Controller
             // Como a proposta abre (cadastro em /admin/parceiros). O portal precisa
             // saber ANTES do clique: janela nova só é permitida no próprio clique.
             'discount_open_in' => app(\App\Services\CashCashService::class)->openIn(),
+            // Endereço da página do parceiro: o portal testa, do aparelho do
+            // passageiro, se ela abre (no ônibus depende do walled garden).
+            'discount_partner_origin' => app(\App\Services\CashCashService::class)->partnerOrigin(),
             // Desconto já ganho antes de um refresh — restaura sem refazer a proposta.
             'discount_already_granted' => (bool) $grantedDiscount,
             'discount_already_granted_amount' => (float) ($grantedDiscount->discount_amount ?? 0),

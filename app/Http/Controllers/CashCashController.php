@@ -7,6 +7,7 @@ use App\Models\Bus;
 use App\Models\DiscountLead;
 use App\Services\CashCashService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -144,6 +145,9 @@ class CashCashController extends Controller
             'link_opened_at' => now(),
         ]);
 
+        // Só o host do link: é o endereço que o portal testa em cada ônibus.
+        $this->cashCash->rememberPartnerOrigin($result['url']);
+
         return response()->json([
             'success' => true,
             'lead_id' => $lead->id,
@@ -154,6 +158,48 @@ class CashCashController extends Controller
             'min_seconds' => SettingsHelper::getCashCashMinSeconds(),
             'discount_amount' => SettingsHelper::getVideoDiscountAmount(),
         ]);
+    }
+
+    /** Onde fica guardado, por ônibus, se a página do parceiro abre de lá. */
+    public const REACHABILITY_CACHE_KEY = 'cashcash_reachability_by_bus';
+
+    /**
+     * O portal testou, do aparelho do passageiro, se a página do parceiro abre.
+     *
+     * No ônibus isso depende de o MikroTik liberar os endereços do parceiro
+     * (walled garden). Guardamos o resultado por ônibus para o admin enxergar
+     * onde a proposta não abre — sem isso o passageiro só veria uma tela
+     * travada e ninguém saberia o motivo. Só conta acesso vindo de um ônibus.
+     */
+    public function reachability(Request $request)
+    {
+        $validated = $request->validate(['reachable' => 'required|boolean']);
+
+        try {
+            $serial = cache()->get('mikrotik_ip_' . $request->ip());
+            if (! $serial) {
+                return response()->json(['success' => true, 'recorded' => false]);
+            }
+
+            $all = Cache::get(self::REACHABILITY_CACHE_KEY, []);
+            $bus = $all[$serial] ?? ['ok' => 0, 'fail' => 0, 'last_ok_at' => null, 'last_fail_at' => null];
+
+            if ($validated['reachable']) {
+                $bus['ok']++;
+                $bus['last_ok_at'] = now()->toDateTimeString();
+            } else {
+                $bus['fail']++;
+                $bus['last_fail_at'] = now()->toDateTimeString();
+            }
+
+            $all[$serial] = $bus;
+            Cache::put(self::REACHABILITY_CACHE_KEY, $all, now()->addDays(30));
+        } catch (\Throwable $e) {
+            // É só diagnóstico: nunca pode atrapalhar o portal.
+            return response()->json(['success' => true, 'recorded' => false]);
+        }
+
+        return response()->json(['success' => true, 'recorded' => true]);
     }
 
     /**

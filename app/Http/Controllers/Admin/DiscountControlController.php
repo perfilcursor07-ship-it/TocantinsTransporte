@@ -10,6 +10,8 @@ use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Admin > Sistema > Descontos.
@@ -70,6 +72,8 @@ class DiscountControlController extends Controller
             'dias' => $dias,
             'situacao' => $situacao,
             'busca' => $request->input('busca'),
+            'alcance' => $this->alcancePorOnibus(),
+            'partnerOrigin' => app(\App\Services\CashCashService::class)->partnerOrigin(),
             'settings' => [
                 'discount_validity_minutes' => SettingsHelper::getDiscountValidityMinutes(),
                 'discount_repeat_days' => SettingsHelper::getDiscountRepeatDays(),
@@ -151,6 +155,42 @@ class DiscountControlController extends Controller
 
             return $lead;
         });
+    }
+
+    /**
+     * Em quais ônibus a página do parceiro abre, segundo o teste que o portal
+     * faz no aparelho de cada passageiro. "Não abre" quase sempre é o MikroTik
+     * daquele ônibus sem a liberação do parceiro (walled garden).
+     */
+    private function alcancePorOnibus(): array
+    {
+        try {
+            $porSerial = Cache::get(\App\Http\Controllers\CashCashController::REACHABILITY_CACHE_KEY, []);
+            if (! is_array($porSerial) || $porSerial === []) {
+                return [];
+            }
+
+            $onibus = \App\Models\Bus::whereIn('mikrotik_serial', array_keys($porSerial))->get()->keyBy('mikrotik_serial');
+
+            return collect($porSerial)->map(function (array $dados, $serial) use ($onibus) {
+                $ok = $dados['last_ok_at'] ?? null;
+                $falha = $dados['last_fail_at'] ?? null;
+
+                return [
+                    'serial' => (string) $serial,
+                    'nome' => $onibus->get($serial)?->name ?: ('MikroTik ' . $serial),
+                    'placa' => $onibus->get($serial)?->plate,
+                    // Vale o teste mais recente.
+                    'abre' => $ok !== null && ($falha === null || $ok >= $falha),
+                    'ultimo_ok' => $ok ? Carbon::parse($ok) : null,
+                    'ultima_falha' => $falha ? Carbon::parse($falha) : null,
+                    'ok' => (int) ($dados['ok'] ?? 0),
+                    'falhas' => (int) ($dados['fail'] ?? 0),
+                ];
+            })->sortBy(fn ($linha) => [$linha['abre'] ? 1 : 0, $linha['nome']])->values()->all();
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 
     private function somenteAdmin(): void

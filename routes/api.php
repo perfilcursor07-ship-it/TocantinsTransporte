@@ -52,6 +52,10 @@ Route::prefix('cashcash')->group(function () {
         ->middleware('throttle:120,1');
     Route::post('/reopen', [\App\Http\Controllers\CashCashController::class, 'reopen'])
         ->middleware('throttle:60,1');
+    // Diagnóstico: o portal avisa se a página do parceiro abre daquele ônibus.
+    // Cada aparelho manda no máximo um aviso a cada 30 minutos.
+    Route::post('/reachability', [\App\Http\Controllers\CashCashController::class, 'reachability'])
+        ->middleware('throttle:120,1');
 });
 
 // Pagamentos

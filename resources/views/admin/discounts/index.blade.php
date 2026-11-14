@@ -84,6 +84,62 @@
             </div>
         </form>
 
+        {{-- A proposta abre em cada ônibus? --}}
+        <div class="bg-white rounded-2xl shadow border border-gray-100 p-6">
+            <h2 class="text-lg font-bold text-gray-800 mb-1">A proposta abre em cada ônibus?</h2>
+            <p class="text-xs text-gray-500 mb-4">
+                O portal testa, no aparelho de cada passageiro, se a página do parceiro
+                @if($partnerOrigin)(<code class="bg-gray-100 px-1 rounded">{{ $partnerOrigin }}</code>)@endif
+                carrega antes de ele pagar. Onde não abre, a oferta de desconto nem aparece e o passageiro paga o preço normal.
+            </p>
+
+            @if(count($alcance))
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 text-left text-xs text-gray-600">
+                            <tr>
+                                <th class="px-4 py-2 font-semibold">Ônibus</th>
+                                <th class="px-4 py-2 font-semibold">Situação</th>
+                                <th class="px-4 py-2 font-semibold">Último teste que abriu</th>
+                                <th class="px-4 py-2 font-semibold">Último teste que não abriu</th>
+                                <th class="px-4 py-2 font-semibold">Testes</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @foreach($alcance as $linha)
+                            <tr>
+                                <td class="px-4 py-2">
+                                    <div class="font-medium text-gray-800">{{ $linha['nome'] }}</div>
+                                    <div class="text-[11px] text-gray-400">{{ $linha['placa'] ? $linha['placa'] . ' · ' : '' }}{{ $linha['serial'] }}</div>
+                                </td>
+                                <td class="px-4 py-2">
+                                    @if($linha['abre'])
+                                        <span class="px-2 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">Abre</span>
+                                    @else
+                                        <span class="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800">Não abre</span>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-2 text-gray-700 whitespace-nowrap">{{ $linha['ultimo_ok']?->format('d/m H:i') ?? '—' }}</td>
+                                <td class="px-4 py-2 text-gray-700 whitespace-nowrap">{{ $linha['ultima_falha']?->format('d/m H:i') ?? '—' }}</td>
+                                <td class="px-4 py-2 text-gray-500 text-xs whitespace-nowrap">{{ $linha['ok'] }} abriram · {{ $linha['falhas'] }} não</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @else
+                <p class="text-sm text-gray-500">Ainda não há testes registrados. Eles aparecem aqui conforme os passageiros abrem o portal nos ônibus.</p>
+            @endif
+
+            <details class="mt-4 text-xs text-gray-600">
+                <summary class="cursor-pointer font-bold text-gray-700">Um ônibus aparece como "Não abre". O que fazer?</summary>
+                <p class="mt-2">Falta liberar o parceiro no MikroTik daquele ônibus. No terminal do roteador:</p>
+                <pre class="mt-2 bg-gray-900 text-gray-100 rounded-lg p-3 overflow-x-auto">/ip hotspot walled-garden add dst-host=cashcash.com.br comment="Parceiro: Cash Cash"
+/ip hotspot walled-garden add dst-host=*.cashcash.com.br comment="Parceiro: Cash Cash *"</pre>
+                <p class="mt-2">Depois disso o próximo passageiro que abrir o portal naquele ônibus já atualiza a situação para "Abre".</p>
+            </details>
+        </div>
+
         {{-- Resumo --}}
         <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
             <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">

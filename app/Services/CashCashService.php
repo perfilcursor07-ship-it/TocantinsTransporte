@@ -38,6 +38,45 @@ class CashCashService
     }
 
     /**
+     * Endereço (só esquema + host) da página que o passageiro abre para ver a
+     * proposta. É o que o portal testa do aparelho dele e o que precisa estar
+     * liberado no MikroTik. Vale o do último link que o parceiro devolveu;
+     * antes do primeiro, o do .env.
+     */
+    public function partnerOrigin(): ?string
+    {
+        try {
+            $visto = Cache::get('cashcash_app_origin');
+        } catch (\Throwable $e) {
+            $visto = null;
+        }
+
+        return $visto ?: self::originOf($this->appUrl());
+    }
+
+    /** Guarda só o host do link devolvido — o link em si nunca é guardado. */
+    public function rememberPartnerOrigin(?string $url): void
+    {
+        try {
+            if ($origin = self::originOf($url)) {
+                Cache::put('cashcash_app_origin', $origin, now()->addDays(30));
+            }
+        } catch (\Throwable $e) {
+            // só diagnóstico
+        }
+    }
+
+    public static function originOf(?string $url): ?string
+    {
+        $parts = parse_url((string) $url);
+        if (empty($parts['scheme']) || empty($parts['host'])) {
+            return null;
+        }
+
+        return $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
+    }
+
+    /**
      * Cadastro da Cash Cash em /admin/parceiros, quando é ele que está ativo.
      * Dele vêm a Base URL (homologação x produção) e o "Como abrir".
      * As credenciais continuam só no .env — o cadastro nunca guarda segredo.
